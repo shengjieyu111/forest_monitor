@@ -2,7 +2,7 @@ import csv
 import os
 import shlex
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 from django.conf import settings
@@ -177,8 +177,13 @@ def import_visitor_records_for_date(csv_path, date_str):
     if not records:
         raise ValueError("CSV 中没有可导入的游客记录。")
 
+    day_start = timezone.make_aware(datetime.combine(target_date, time.min))
+    day_end = day_start + timedelta(days=1)
     with transaction.atomic():
-        VisitorRecord.objects.filter(visit_time__date=target_date).delete()
+        VisitorRecord.objects.filter(
+            visit_time__gte=day_start,
+            visit_time__lt=day_end,
+        ).delete()
         VisitorRecord.objects.bulk_create(records, batch_size=5000)
 
     return ImportResult(

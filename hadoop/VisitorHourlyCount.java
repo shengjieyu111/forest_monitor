@@ -96,7 +96,9 @@ public class VisitorHourlyCount {
         job.setJarByClass(VisitorHourlyCount.class);
 
         job.setMapperClass(HourlyMapper.class);
+        job.setCombinerClass(HourlyReducer.class);
         job.setReducerClass(HourlyReducer.class);
+        job.setNumReduceTasks(1);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);

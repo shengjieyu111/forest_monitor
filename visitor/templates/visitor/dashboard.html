@@ -492,13 +492,13 @@
     }
 
     async function runMapReduceJobs() {
-      if (!window.confirm("确认上传最新 CSV、更新 MySQL 原始记录，并重新运行三个 MapReduce 作业吗？")) return;
+      if (!window.confirm("确认重新运行三个 MapReduce 统计作业吗？")) return;
       const button = document.getElementById("run-mr-button");
       const label = button.querySelector("span");
       const icon = button.querySelector("svg");
       button.disabled = true;
       button.classList.add("loading");
-      label.textContent = "正在运行...";
+      label.textContent = "MapReduce 正在运行，请稍候...";
       if (icon) icon.setAttribute("data-lucide", "loader-circle");
       if (window.lucide) window.lucide.createIcons();
       try {
@@ -508,13 +508,12 @@
         });
         const result = await response.json();
         if (!response.ok || !result.success) {
-          const failed = result.data?.steps?.find(step => !step.success && !step.skipped);
-          throw new Error(failed?.error || result.message || "MapReduce 作业执行失败");
+          throw new Error(result.message || "MapReduce 作业执行失败，请检查 Hadoop 服务状态。");
         }
-        window.alert("CSV、MySQL 原始记录和 MapReduce 统计结果均已更新。页面将刷新。");
+        window.alert("MapReduce 作业执行完成，统计结果已同步至 MySQL。");
         window.location.reload();
       } catch (error) {
-        window.alert(`执行失败：${error.message}`);
+        window.alert(`MapReduce 作业执行失败：${error.message}`);
       } finally {
         button.disabled = false;
         button.classList.remove("loading");

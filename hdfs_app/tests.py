@@ -4,6 +4,10 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.utils import timezone
+
+from datetime import datetime
+from visitor.models import VisitorRecord
 
 from .services import get_hdfs_date_dir, validate_date_str
 
@@ -144,13 +148,29 @@ class HdfsIndexTests(TestCase):
     @patch("hdfs_app.views.hdfs_list", return_value=SUCCESS_RESULT)
     @patch("hdfs_app.views.hdfs_delete_by_date", return_value=SUCCESS_RESULT)
     def test_delete_by_date(self, delete_by_date, hdfs_list):
-        response = self.client.post(
-            "/hdfs/",
-            {"action": "delete_by_date", "delete_date": "2026-06-15"},
+        VisitorRecord.objects.create(
+            visit_time=timezone.make_aware(datetime(2026, 6, 15, 8, 0)),
+            gate="东门",
+            visitor_count=10,
+            weather="晴",
+            ticket_type="成人票",
         )
+        with TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir) / "visitor_records_2026-06-15.csv"
+            local_path.write_text("test", encoding="utf-8")
+            with patch("hdfs_app.views.UPLOAD_DIR", Path(temp_dir)):
+                response = self.client.post(
+                    "/hdfs/",
+                    {"action": "delete_by_date", "delete_date": "2026-06-15"},
+                )
+
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "删除 2026-06-15 日期分区成功")
+        self.assertContains(response, "并同步删除 MySQL 中 1 条游客记录")
         delete_by_date.assert_called_once_with("2026-06-15")
+        self.assertFalse(
+            VisitorRecord.objects.filter(pk__isnull=False).exists()
+        )
+        self.assertFalse(local_path.exists())
 
     @patch("hdfs_app.views.hdfs_list", return_value=SUCCESS_RESULT)
     def test_upload_rejects_non_csv_file(self, hdfs_list):

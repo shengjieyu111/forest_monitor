@@ -97,7 +97,9 @@ public class VisitorDailyCount {
         job.setJarByClass(VisitorDailyCount.class);
 
         job.setMapperClass(DailyMapper.class);
+        job.setCombinerClass(DailyReducer.class);
         job.setReducerClass(DailyReducer.class);
+        job.setNumReduceTasks(1);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);

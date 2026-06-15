@@ -1,7 +1,10 @@
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 from django.conf import settings
 from django.shortcuts import render
+from django.utils import timezone
+from visitor.models import VisitorRecord
 from visitor.services import import_visitor_records_for_date
 
 from .services import (
@@ -117,9 +120,34 @@ def hdfs_index(request):
                     request.POST.get("delete_date", "")
                 )
                 result = hdfs_delete_by_date(selected_date)
-                message, message_type = _result_message(
-                    f"删除 {selected_date} 日期分区", result
-                )
+                if result["success"]:
+                    target_date = datetime.strptime(
+                        selected_date, "%Y-%m-%d"
+                    ).date()
+                    day_start = timezone.make_aware(
+                        datetime.combine(target_date, time.min)
+                    )
+                    day_end = day_start + timedelta(days=1)
+                    records = VisitorRecord.objects.filter(
+                        visit_time__gte=day_start,
+                        visit_time__lt=day_end,
+                    )
+                    deleted_rows = records.count()
+                    records.delete()
+                    local_path = (
+                        UPLOAD_DIR / f"visitor_records_{selected_date}.csv"
+                    )
+                    if local_path.exists():
+                        local_path.unlink()
+                    message = (
+                        f"已删除 {selected_date} HDFS 日期分区，"
+                        f"并同步删除 MySQL 中 {deleted_rows} 条游客记录。"
+                    )
+                    message_type = "success"
+                else:
+                    message, message_type = _result_message(
+                        f"删除 {selected_date} 日期分区", result
+                    )
 
             elif action == "list":
                 pass

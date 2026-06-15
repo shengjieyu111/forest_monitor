@@ -93,7 +93,9 @@ public class VisitorGateCount {
         job.setJarByClass(VisitorGateCount.class);
 
         job.setMapperClass(GateMapper.class);
+        job.setCombinerClass(GateReducer.class);
         job.setReducerClass(GateReducer.class);
+        job.setNumReduceTasks(1);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
