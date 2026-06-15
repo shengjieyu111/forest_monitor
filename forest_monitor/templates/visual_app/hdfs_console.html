@@ -9,9 +9,40 @@
     <link rel="stylesheet" href="{% static 'visual_app/css/dashboard.css' %}">
 </head>
 <body>
-    <div class="ambient ambient-one"></div>
-    <div class="ambient ambient-two"></div>
+    <aside class="sidebar">
+        <a class="sidebar-brand" href="{% url 'visual_app:dashboard' %}">
+            <span class="sidebar-logo">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-1.3 3.4-4 5.3-7 6.8 1.2 4.7 3.7 8.3 7 11.2 3.3-2.9 5.8-6.5 7-11.2C16 8.3 13.3 6.4 12 3Z"/><path d="M12 7v10M8.5 11.5 12 14l3.5-2.5"/></svg>
+            </span>
+            <span><strong>Forest</strong><small>Environment OS</small></span>
+        </a>
+        <nav class="sidebar-nav">
+            <span class="nav-section">工作空间</span>
+            <a class="sidebar-link" href="{% url 'visual_app:dashboard' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>
+                <span>数据看板</span>
+            </a>
+            <a class="sidebar-link active" href="{% url 'visual_app:hdfs-console' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h6l1.5 2H20v8.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l1.5 2H4v1.5Z"/></svg>
+                <span>HDFS 控制台</span>
+            </a>
+            <span class="nav-section">快捷操作</span>
+            <a class="sidebar-link" href="#hdfsUploadForm">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v5h14v-5"/></svg>
+                <span>上传文件</span>
+            </a>
+            <a class="sidebar-link" href="#hdfsFilesBody">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 9h16M8 13h8M8 16h5"/></svg>
+                <span>文件管理</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <span>WebHDFS 已连接<br><small>hd0:50070</small></span>
+        </div>
+    </aside>
 
+    <div class="app-main">
     <header class="topbar">
         <div class="brand">
             <div class="brand-mark"><span></span><span></span><span></span></div>
@@ -21,8 +52,6 @@
             </div>
         </div>
         <div class="header-status">
-            <a class="nav-link active" href="{% url 'visual_app:hdfs-console' %}">HDFS 控制台</a>
-            <a class="nav-link" href="{% url 'visual_app:dashboard' %}">返回数据看板</a>
             <div class="clock" id="clock">--:--:--</div>
         </div>
     </header>
@@ -127,6 +156,7 @@
             </section>
         </section>
     </main>
+    </div>
 
     <div class="toast" id="toast"></div>
     <script src="{% static 'visual_app/js/dashboard.js' %}"></script>

@@ -10,9 +10,33 @@
     <script src="{% static 'vendor/echarts/echarts.min.js' %}"></script>
 </head>
 <body>
-    <div class="ambient ambient-one"></div>
-    <div class="ambient ambient-two"></div>
+    <aside class="sidebar">
+        <a class="sidebar-brand" href="{% url 'visual_app:dashboard' %}">
+            <span class="sidebar-logo">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-1.3 3.4-4 5.3-7 6.8 1.2 4.7 3.7 8.3 7 11.2 3.3-2.9 5.8-6.5 7-11.2C16 8.3 13.3 6.4 12 3Z"/><path d="M12 7v10M8.5 11.5 12 14l3.5-2.5"/></svg>
+            </span>
+            <span><strong>Forest</strong><small>Environment OS</small></span>
+        </a>
+        <nav class="sidebar-nav">
+            <span class="nav-section">工作空间</span>
+            <a class="sidebar-link active" href="{% url 'visual_app:dashboard' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>
+                <span>数据看板</span>
+            </a>
+            <a class="sidebar-link" href="{% url 'visual_app:hdfs-console' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h6l1.5 2H20v8.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l1.5 2H4v1.5Z"/></svg>
+                <span>HDFS 控制台</span>
+            </a>
+            <span class="nav-section">数据状态</span>
+            <div class="sidebar-info"><span class="status-dot"></span><div><strong>系统在线</strong><small>SQLite 数据源</small></div></div>
+        </nav>
+        <div class="sidebar-footer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <span>森林监测平台<br><small>Hadoop + Django</small></span>
+        </div>
+    </aside>
 
+    <div class="app-main">
     <header class="topbar">
         <div class="brand">
             <div class="brand-mark">
@@ -24,7 +48,6 @@
             </div>
         </div>
         <div class="header-status">
-            <a class="nav-link" href="{% url 'visual_app:hdfs-console' %}">HDFS 作业控制台</a>
             <div class="status-item">
                 <span class="status-dot"></span>
                 <div><small>系统状态</small><strong>实时在线</strong></div>
@@ -59,14 +82,14 @@
         </section>
 
         <section class="kpi-grid" id="kpiGrid">
-            <article class="kpi-card mint"><div class="kpi-icon">T</div><div><span>平均温度</span><strong id="kpiTemp">--</strong><small id="kpiTempMax">峰值 --</small></div></article>
-            <article class="kpi-card blue"><div class="kpi-icon">H</div><div><span>平均湿度</span><strong id="kpiHumidity">--</strong><small>林区水汽状态</small></div></article>
-            <article class="kpi-card amber"><div class="kpi-icon">P</div><div><span>平均 PM2.5</span><strong id="kpiPm25">--</strong><small>空气颗粒物</small></div></article>
-            <article class="kpi-card violet"><div class="kpi-icon">L</div><div><span>最大光照</span><strong id="kpiLight">--</strong><small>照度峰值</small></div></article>
-            <article class="kpi-card coral"><div class="kpi-icon">!</div><div><span>风险事件</span><strong id="kpiRisk">--</strong><small id="kpiHighRisk">高风险 --</small></div></article>
-            <article class="kpi-card cyan"><div class="kpi-icon">S</div><div><span>环境健康度</span><strong id="kpiHealth">--</strong><small>综合指数</small></div></article>
-            <article class="kpi-card green"><div class="kpi-icon">R</div><div><span>聚合结果</span><strong id="kpiRecords">--</strong><small>MapReduce 日统计</small></div></article>
-            <article class="kpi-card indigo"><div class="kpi-icon">N</div><div><span>当前状态</span><strong id="kpiCurrentRisk">--</strong><small id="kpiCurrentTime">--</small></div></article>
+            <article class="kpi-card"><div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M14 14.8V5a3 3 0 0 0-6 0v9.8a5 5 0 1 0 6 0ZM11 6v10"/></svg></div><div><span>平均温度</span><strong id="kpiTemp">--</strong><small id="kpiTempMax">峰值 --</small></div></article>
+            <article class="kpi-card"><div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.2 6 11a6 6 0 0 1-12 0c0-4.8 6-11 6-11Z"/></svg></div><div><span>平均湿度</span><strong id="kpiHumidity">--</strong><small>林区水汽状态</small></div></article>
+            <article class="kpi-card"><div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M4 15h16M6 11h12M9 7h6M7 19h10"/></svg></div><div><span>平均 PM2.5</span><strong id="kpiPm25">--</strong><small>空气颗粒物</small></div></article>
+            <article class="kpi-card"><div class="kpi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg></div><div><span>最大光照</span><strong id="kpiLight">--</strong><small>照度峰值</small></div></article>
+            <article class="kpi-card risk-card"><div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4M12 16h.01"/></svg></div><div><span>风险事件</span><strong id="kpiRisk">--</strong><small id="kpiHighRisk">高风险 --</small></div></article>
+            <article class="kpi-card"><div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M12 3c-1.3 3.4-4 5.3-7 6.8 1.2 4.7 3.7 8.3 7 11.2 3.3-2.9 5.8-6.5 7-11.2C16 8.3 13.3 6.4 12 3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></div><div><span>环境健康度</span><strong id="kpiHealth">--</strong><small>综合指数</small></div></article>
+            <article class="kpi-card"><div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M4 18V9M10 18V5M16 18v-7M22 18H2"/></svg></div><div><span>聚合结果</span><strong id="kpiRecords">--</strong><small>MapReduce 日统计</small></div></article>
+            <article class="kpi-card"><div class="kpi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div><span>当前状态</span><strong id="kpiCurrentRisk">--</strong><small id="kpiCurrentTime">--</small></div></article>
         </section>
 
         <section class="content-grid">
@@ -170,6 +193,7 @@
             </article>
         </section>
     </main>
+    </div>
 
     <div class="loading" id="loading"><div class="loader"></div><span>正在汇聚森林监测数据...</span></div>
     <div class="toast" id="toast"></div>

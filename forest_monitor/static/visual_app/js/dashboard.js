@@ -1,7 +1,7 @@
 const palette = {
-    green: '#3de29f', green2: '#78f0bd', blue: '#4ba7ff', cyan: '#42d6d0',
-    amber: '#ffbd5a', coral: '#ff6f6f', violet: '#a77bff', muted: '#6f9185',
-    grid: 'rgba(150,210,184,.10)', text: '#91afa4'
+    green: '#5f9175', green2: '#7fac90', blue: '#769d91', cyan: '#91b3a5',
+    amber: '#b69a61', coral: '#b8756d', violet: '#87998e', muted: '#87938c',
+    grid: 'rgba(80,112,94,.12)', text: '#718078'
 };
 
 const charts = {};
@@ -31,9 +31,9 @@ function initChart(id) {
 function baseTooltip() {
     return {
         trigger: 'axis',
-        backgroundColor: 'rgba(6,20,16,.96)',
-        borderColor: 'rgba(61,226,159,.25)',
-        textStyle: { color: '#dff5e9', fontSize: 11 }
+        backgroundColor: 'rgba(255,255,255,.98)',
+        borderColor: '#dce6df',
+        textStyle: { color: '#34453b', fontSize: 11 }
     };
 }
 
@@ -167,7 +167,7 @@ function renderGauge(data) {
             pointer: { width: 4, length: '58%', itemStyle: { color: '#d9fff0' } },
             anchor: { show: true, size: 10, itemStyle: { color: palette.green } },
             title: { offsetCenter: [0, '68%'], color: palette.text, fontSize: 11 },
-            detail: { valueAnimation: true, formatter: '{value} 分', color: '#f2fff8', fontSize: 27, offsetCenter: [0, '28%'] },
+            detail: { valueAnimation: true, formatter: '{value} 分', color: '#2d4035', fontSize: 27, offsetCenter: [0, '28%'] },
             data: [{ value: data.kpis.health_score, name: data.latest.risk }]
         }]
     }, true);
@@ -205,8 +205,8 @@ function renderRisk(data) {
         legend: { bottom: 0, textStyle: { color: palette.text, fontSize: 9 } },
         series: [{
             type: 'pie', radius: ['48%', '72%'], center: ['50%', '44%'],
-            label: { color: '#d9eee5', fontSize: 9, formatter: '{b}\n{d}%' },
-            itemStyle: { borderColor: '#0c201a', borderWidth: 3, borderRadius: 6 },
+            label: { color: '#53645a', fontSize: 9, formatter: '{b}\n{d}%' },
+            itemStyle: { borderColor: '#ffffff', borderWidth: 3, borderRadius: 6 },
             data: totals
         }]
     }, true);
@@ -221,7 +221,7 @@ function renderRadar(data) {
                 { name: '光照(k)', max: 100 }, { name: '风险率', max: 100 }
             ],
             axisName: { color: palette.text, fontSize: 9 },
-            splitLine: { lineStyle: { color: ['rgba(150,210,184,.08)', 'rgba(150,210,184,.14)'] } },
+            splitLine: { lineStyle: { color: ['rgba(80,112,94,.07)', 'rgba(80,112,94,.13)'] } },
             splitArea: { areaStyle: { color: ['rgba(61,226,159,.01)', 'rgba(61,226,159,.035)'] } },
             axisLine: { lineStyle: { color: palette.grid } }
         },
@@ -236,7 +236,7 @@ function renderScatter(data) {
     const riskColor = { '正常': palette.green, '低风险': palette.blue, '中风险': palette.amber, '高风险': palette.coral };
     initChart('scatterChart').setOption({
         tooltip: {
-            trigger: 'item', backgroundColor: 'rgba(6,20,16,.96)', borderColor: palette.grid,
+            trigger: 'item', backgroundColor: 'rgba(255,255,255,.98)', borderColor: '#dce6df', textStyle: { color: '#34453b' },
             formatter: p => `${p.value[3]}<br>温度 ${p.value[0]} ℃<br>湿度 ${p.value[1]} %<br>PM2.5 ${p.value[2]}<br>${p.value[4]}`
         },
         grid: { left: 48, right: 20, top: 20, bottom: 38 },
@@ -317,9 +317,9 @@ function renderTopN(data) {
     initChart('topNChart').setOption({
         tooltip: {
             trigger: 'axis',
-            backgroundColor: 'rgba(6,20,16,.96)',
-            borderColor: 'rgba(61,226,159,.25)',
-            textStyle: { color: '#dff5e9', fontSize: 11 },
+            backgroundColor: 'rgba(255,255,255,.98)',
+            borderColor: '#dce6df',
+            textStyle: { color: '#34453b', fontSize: 11 },
             formatter: params => {
                 const item = rows[params[0].dataIndex];
                 return [
@@ -355,7 +355,7 @@ function renderTopN(data) {
                     ]),
                     borderRadius: [0, 5, 5, 0]
                 },
-                label: { show: true, position: 'right', color: '#dff5e9', fontSize: 10 }
+                label: { show: true, position: 'right', color: '#53645a', fontSize: 10 }
             },
             {
                 name: '危险样本数',
@@ -391,7 +391,7 @@ function renderDistribution(data) {
                 value: item.value,
                 itemStyle: { color: [palette.green, palette.amber, palette.coral][index], borderRadius: [0,5,5,0] }
             })),
-            label: { show: true, position: 'right', color: '#cce2d8', fontSize: 9 }
+            label: { show: true, position: 'right', color: '#53645a', fontSize: 9 }
         }]
     }, true);
 }
@@ -405,7 +405,7 @@ function renderHeatmap(data) {
         visualMap: {
             min: 20, max: 90, calculable: true, orient: 'horizontal', left: 'center', bottom: 2,
             textStyle: { color: palette.text, fontSize: 9 },
-            inRange: { color: ['#173a66', '#1d8f83', '#42d391', '#f0bb55', '#eb6767'] }
+            inRange: { color: ['#edf4ef', '#c8ddcf', '#82ae91', '#b9a574', '#b8756d'] }
         },
         series: [{ type: 'heatmap', data: data.heatmap, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,.6)' } } }]
     }, true);
@@ -487,7 +487,7 @@ async function loadHdfsFiles(path = hdfsPath) {
             const modified = new Date(item.modification_time).toLocaleString('zh-CN', { hour12: false });
             const isDirectory = item.type === 'directory';
             return `<tr>
-                <td><button class="file-name-button ${isDirectory ? 'directory' : ''}" data-open="${escapeHtml(item.path)}" data-type="${item.type}">${isDirectory ? '▣' : '▤'} ${escapeHtml(item.name)}</button></td>
+                <td><button class="file-name-button ${isDirectory ? 'directory' : ''}" data-open="${escapeHtml(item.path)}" data-type="${item.type}"><span class="file-type-icon ${isDirectory ? 'folder' : 'document'}"></span>${escapeHtml(item.name)}</button></td>
                 <td>${isDirectory ? '目录' : '文件'}</td>
                 <td>${isDirectory ? '--' : formatBytes(item.length)}</td>
                 <td>${modified}</td>
