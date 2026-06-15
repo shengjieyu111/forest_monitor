@@ -1,0 +1,163 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="森林环境监测与风险预警可视化平台">
+    <title>森林环境监测中心</title>
+    <link rel="stylesheet" href="{% static 'visual_app/css/dashboard.css' %}">
+    <script src="{% static 'vendor/echarts/echarts.min.js' %}"></script>
+</head>
+<body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark">
+                <span></span><span></span><span></span>
+            </div>
+            <div>
+                <p class="eyebrow">FOREST INTELLIGENCE PLATFORM</p>
+                <h1>森林环境监测中心</h1>
+            </div>
+        </div>
+        <div class="header-status">
+            <div class="status-item">
+                <span class="status-dot"></span>
+                <div><small>系统状态</small><strong>实时在线</strong></div>
+            </div>
+            <div class="status-item">
+                <small>数据源</small>
+                <strong id="sourceLabel">HDFS MapReduce</strong>
+            </div>
+            <div class="clock" id="clock">--:--:--</div>
+        </div>
+    </header>
+
+    <main class="dashboard-shell">
+        <section class="hero panel">
+            <div>
+                <p class="eyebrow">SMART ECOLOGICAL MONITORING</p>
+                <h2><span id="cityName">森林公园</span>环境态势</h2>
+                <p class="hero-copy">直接读取 HDFS 中的 MapReduce 日统计结果，展示气温、湿度、空气质量、光照峰值和风险预警。</p>
+                <div class="hero-meta">
+                    <span id="dateRange">加载中</span>
+                    <span id="recordCount">-- 条记录</span>
+                    <span id="updatedAt">最近更新 --</span>
+                    <span id="sourcePath">HDFS --</span>
+                </div>
+            </div>
+            <div class="filter-panel">
+                <label>开始日期<input type="date" id="startDate"></label>
+                <label>结束日期<input type="date" id="endDate"></label>
+                <button class="primary-btn" id="applyFilter">更新看板</button>
+                <button class="ghost-btn" id="resetFilter">全部数据</button>
+            </div>
+        </section>
+
+        <section class="kpi-grid" id="kpiGrid">
+            <article class="kpi-card mint"><div class="kpi-icon">T</div><div><span>平均温度</span><strong id="kpiTemp">--</strong><small id="kpiTempMax">峰值 --</small></div></article>
+            <article class="kpi-card blue"><div class="kpi-icon">H</div><div><span>平均湿度</span><strong id="kpiHumidity">--</strong><small>林区水汽状态</small></div></article>
+            <article class="kpi-card amber"><div class="kpi-icon">P</div><div><span>平均 PM2.5</span><strong id="kpiPm25">--</strong><small>空气颗粒物</small></div></article>
+            <article class="kpi-card violet"><div class="kpi-icon">L</div><div><span>最大光照</span><strong id="kpiLight">--</strong><small>照度峰值</small></div></article>
+            <article class="kpi-card coral"><div class="kpi-icon">!</div><div><span>风险事件</span><strong id="kpiRisk">--</strong><small id="kpiHighRisk">高风险 --</small></div></article>
+            <article class="kpi-card cyan"><div class="kpi-icon">S</div><div><span>环境健康度</span><strong id="kpiHealth">--</strong><small>综合指数</small></div></article>
+            <article class="kpi-card green"><div class="kpi-icon">R</div><div><span>聚合结果</span><strong id="kpiRecords">--</strong><small>MapReduce 日统计</small></div></article>
+            <article class="kpi-card indigo"><div class="kpi-icon">N</div><div><span>当前状态</span><strong id="kpiCurrentRisk">--</strong><small id="kpiCurrentTime">--</small></div></article>
+        </section>
+
+        <section class="content-grid">
+            <article class="panel chart-panel span-8">
+                <div class="panel-head">
+                    <div><p class="eyebrow">MULTI-DIMENSIONAL TREND</p><h3>环境指标综合趋势</h3></div>
+                    <div class="segmented" id="trendMetric">
+                        <button class="active" data-metric="environment">温湿度</button>
+                        <button data-metric="air">空气质量</button>
+                        <button data-metric="light">光照</button>
+                    </div>
+                </div>
+                <div class="chart tall-chart" id="trendChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-4">
+                <div class="panel-head"><div><p class="eyebrow">HEALTH INDEX</p><h3>生态健康指数</h3></div></div>
+                <div class="chart tall-chart" id="gaugeChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-5">
+                <div class="panel-head"><div><p class="eyebrow">DAILY OVERVIEW</p><h3>每日平均值与峰值</h3></div></div>
+                <div class="chart" id="dailyChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-3">
+                <div class="panel-head"><div><p class="eyebrow">RISK MATRIX</p><h3>风险等级分布</h3></div></div>
+                <div class="chart" id="riskChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-4">
+                <div class="panel-head"><div><p class="eyebrow">ENVIRONMENT PROFILE</p><h3>环境能力雷达</h3></div></div>
+                <div class="chart" id="radarChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-6">
+                <div class="panel-head"><div><p class="eyebrow">CORRELATION ANALYSIS</p><h3>温湿度与 PM2.5 关联</h3></div><span class="panel-note">气泡大小代表颗粒物浓度</span></div>
+                <div class="chart" id="scatterChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-6">
+                <div class="panel-head"><div><p class="eyebrow">PEAK COMPARISON</p><h3>各日环境峰值对比</h3></div></div>
+                <div class="chart" id="hourlyChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-4">
+                <div class="panel-head"><div><p class="eyebrow">TEMPERATURE BANDS</p><h3>温度区间分布</h3></div></div>
+                <div class="chart" id="distributionChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-8">
+                <div class="panel-head"><div><p class="eyebrow">METRIC HEATMAP</p><h3>每日聚合指标热力图</h3></div></div>
+                <div class="chart" id="heatmapChart"></div>
+            </article>
+
+            <article class="panel alert-panel span-4">
+                <div class="panel-head"><div><p class="eyebrow">LIVE ALERTS</p><h3>风险预警动态</h3></div><span class="live-badge">LIVE</span></div>
+                <div class="alert-list" id="alertList"></div>
+            </article>
+
+            <article class="panel table-panel span-12">
+                <div class="panel-head table-head">
+                    <div><p class="eyebrow">MONITORING RECORDS</p><h3>环境监测明细</h3></div>
+                    <div class="table-tools">
+                        <input type="search" id="recordKeyword" placeholder="搜索日期或预警内容">
+                        <select id="riskFilter">
+                            <option value="">全部风险</option>
+                            <option value="正常">正常</option>
+                            <option value="低风险">低风险</option>
+                            <option value="中风险">中风险</option>
+                            <option value="高风险">高风险</option>
+                        </select>
+                        <button class="ghost-btn" id="searchRecords">查询</button>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead><tr><th>日期</th><th>平均/峰值温度</th><th>平均/峰值湿度</th><th>平均/峰值 PM2.5</th><th>平均/峰值光照</th><th>MapReduce 预警</th><th>风险等级</th></tr></thead>
+                        <tbody id="recordsBody"></tbody>
+                    </table>
+                </div>
+                <div class="pagination">
+                    <span id="pageInfo">共 0 条</span>
+                    <div><button id="prevPage">上一页</button><span id="pageNumber">1 / 1</span><button id="nextPage">下一页</button></div>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <div class="loading" id="loading"><div class="loader"></div><span>正在汇聚森林监测数据...</span></div>
+    <div class="toast" id="toast"></div>
+
+    <script src="{% static 'visual_app/js/dashboard.js' %}"></script>
+</body>
+</html>
