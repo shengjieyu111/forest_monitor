@@ -1,6 +1,9 @@
 from django.http import JsonResponse
 from django.shortcuts import render
 
+from mapreduce_app.hdfs_sync import sync_all_results
+from mapreduce_app.models import DailyWeatherStat
+
 from .data_service import build_dashboard_payload, build_records_payload
 
 
@@ -8,14 +11,19 @@ def dashboard(request):
     return render(request, 'visual_app/dashboard.html')
 
 
+def hdfs_console(request):
+    return render(request, 'visual_app/hdfs_console.html')
+
+
 def dashboard_data(request):
     try:
+        if request.GET.get('refresh') == '1' or not DailyWeatherStat.objects.exists():
+            sync_all_results()
         payload = build_dashboard_payload(
             start_date=request.GET.get('start_date'),
             end_date=request.GET.get('end_date'),
-            force=request.GET.get('refresh') == '1',
         )
-    except RuntimeError as error:
+    except Exception as error:
         return JsonResponse({'empty': True, 'message': str(error)}, status=503)
     return JsonResponse(payload, json_dumps_params={'ensure_ascii': False})
 
@@ -36,6 +44,6 @@ def records_data(request):
             start_date=request.GET.get('start_date'),
             end_date=request.GET.get('end_date'),
         )
-    except RuntimeError as error:
+    except Exception as error:
         return JsonResponse({'error': str(error)}, status=503)
     return JsonResponse(payload, json_dumps_params={'ensure_ascii': False})

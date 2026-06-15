@@ -9,6 +9,10 @@ let dashboardPayload = null;
 let recordPage = 1;
 let recordPageCount = 1;
 let trendMode = 'environment';
+let hdfsPath = '/waether';
+let hdfsParentPath = null;
+let activeJobId = null;
+let jobPollTimer = null;
 
 const $ = (id) => document.getElementById(id);
 const fmt = (value, digits = 1) => Number(value).toLocaleString('zh-CN', { maximumFractionDigits: digits });
@@ -33,10 +37,22 @@ function baseTooltip() {
     };
 }
 
-async function fetchJson(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`请求失败：${response.status}`);
-    return response.json();
+function getCookie(name) {
+    return document.cookie.split(';').map(item => item.trim()).find(item => item.startsWith(`${name}=`))?.split('=')[1] || '';
+}
+
+async function fetchJson(url, options = {}) {
+    const requestOptions = { ...options };
+    if (requestOptions.method && requestOptions.method !== 'GET') {
+        requestOptions.headers = {
+            'X-CSRFToken': decodeURIComponent(getCookie('csrftoken')),
+            ...(requestOptions.headers || {})
+        };
+    }
+    const response = await fetch(url, requestOptions);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || payload.message || `请求失败：${response.status}`);
+    return payload;
 }
 
 function queryDates() {
@@ -72,7 +88,7 @@ function renderSummary(data) {
     $('recordCount').textContent = `${fmt(meta.record_count, 0)} 条记录`;
     $('updatedAt').textContent = `最新统计 ${meta.updated_at}`;
     $('sourceLabel').textContent = data.source.label;
-    $('sourcePath').textContent = `HDFS ${meta.source_path}`;
+    $('sourcePath').textContent = meta.source_path;
     $('sourceLabel').style.color = data.source.online ? palette.green2 : palette.amber;
     if (!$('startDate').value) $('startDate').value = meta.start_date;
     if (!$('endDate').value) $('endDate').value = meta.end_date;
@@ -83,8 +99,9 @@ function renderSummary(data) {
     $('kpiPm25').textContent = fmt(kpis.pm25_avg);
     $('kpiLight').textContent = `${fmt(kpis.illumination_max / 1000)}k lx`;
     $('kpiRisk').textContent = fmt(kpis.risk_events, 0);
-    $('kpiHighRisk').textContent = `高风险 ${fmt(kpis.high_risk_events, 0)}`;
+    $('kpiHighRisk').textContent = `样本风险率 ${fmt(kpis.risk_rate)}%`;
     $('kpiHealth').textContent = `${fmt(kpis.health_score, 0)} 分`;
+    $('kpiHealth').nextElementSibling.textContent = `舒适率 ${fmt(kpis.comfort_rate)}%`;
     $('kpiRecords').textContent = fmt(meta.record_count, 0);
     $('kpiCurrentRisk').textContent = latest.risk;
     $('kpiCurrentTime').textContent = latest.time;
@@ -98,6 +115,9 @@ function renderAllCharts(data) {
     renderRadar(data);
     renderScatter(data);
     renderHourly(data);
+    renderRiskTrend(data);
+    renderComfortTrend(data);
+    renderTopN(data);
     renderDistribution(data);
     renderHeatmap(data);
 }
@@ -168,7 +188,18 @@ function renderDaily(data) {
 }
 
 function renderRisk(data) {
-    const colorMap = { '正常': palette.green, '低风险': palette.blue, '中风险': palette.amber, '高风险': palette.coral };
+    const totals = data.risk_detail.reduce((result, item) => {
+        result[0].value += item.high_temp_count;
+        result[1].value += item.high_humidity_count;
+        result[2].value += item.pollution_count;
+        result[3].value += item.fire_risk_count;
+        return result;
+    }, [
+        { name: '高温样本', value: 0, itemStyle: { color: palette.amber } },
+        { name: '高湿样本', value: 0, itemStyle: { color: palette.blue } },
+        { name: '污染样本', value: 0, itemStyle: { color: palette.violet } },
+        { name: '火险样本', value: 0, itemStyle: { color: palette.coral } }
+    ]);
     initChart('riskChart').setOption({
         tooltip: { ...baseTooltip(), trigger: 'item' },
         legend: { bottom: 0, textStyle: { color: palette.text, fontSize: 9 } },
@@ -176,7 +207,7 @@ function renderRisk(data) {
             type: 'pie', radius: ['48%', '72%'], center: ['50%', '44%'],
             label: { color: '#d9eee5', fontSize: 9, formatter: '{b}\n{d}%' },
             itemStyle: { borderColor: '#0c201a', borderWidth: 3, borderRadius: 6 },
-            data: data.risk_distribution.map(item => ({ ...item, itemStyle: { color: colorMap[item.name] } }))
+            data: totals
         }]
     }, true);
 }
@@ -225,30 +256,140 @@ function renderHourly(data) {
         tooltip: baseTooltip(),
         legend: { top: 3, textStyle: { color: palette.text, fontSize: 9 } },
         grid: { left: 42, right: 44, top: 42, bottom: 32 },
-        xAxis: { ...axisStyle, type: 'category', data: data.peak_comparison.map(item => item.date.slice(5)), axisLabel: { color: palette.text, fontSize: 9 } },
+        xAxis: { ...axisStyle, type: 'category', data: data.hourly.map(item => item.hour), axisLabel: { color: palette.text, fontSize: 9, interval: 2 } },
         yAxis: [
             { ...axisStyle, type: 'value' },
             { ...axisStyle, type: 'value', splitLine: { show: false } }
         ],
         series: [
-            { name: '温度峰值', type: 'line', smooth: true, data: data.peak_comparison.map(item => item.temperature), itemStyle: { color: palette.green } },
-            { name: '湿度峰值', type: 'line', smooth: true, data: data.peak_comparison.map(item => item.humidity), itemStyle: { color: palette.blue } },
-            { name: 'PM2.5峰值', type: 'bar', yAxisIndex: 1, data: data.peak_comparison.map(item => item.pm25), itemStyle: { color: 'rgba(255,189,90,.48)', borderRadius: [3,3,0,0] } }
+            { name: '平均温度', type: 'line', smooth: true, data: data.hourly.map(item => item.temperature), itemStyle: { color: palette.green }, showSymbol: false },
+            { name: '平均湿度', type: 'line', smooth: true, data: data.hourly.map(item => item.humidity), itemStyle: { color: palette.blue }, showSymbol: false },
+            { name: '平均PM2.5', type: 'bar', yAxisIndex: 1, data: data.hourly.map(item => item.pm25), itemStyle: { color: 'rgba(255,189,90,.48)', borderRadius: [3,3,0,0] } }
+        ]
+    }, true);
+}
+
+function renderRiskTrend(data) {
+    const rows = data.risk_detail;
+    initChart('riskTrendChart').setOption({
+        tooltip: baseTooltip(),
+        legend: { top: 3, textStyle: { color: palette.text, fontSize: 9 } },
+        grid: { left: 46, right: 48, top: 44, bottom: 45 },
+        dataZoom: [{ type: 'inside' }, { type: 'slider', height: 12, bottom: 5 }],
+        xAxis: { ...axisStyle, type: 'category', data: rows.map(item => item.date.slice(5)) },
+        yAxis: [
+            { ...axisStyle, type: 'value', name: '样本数', nameTextStyle: { color: palette.text } },
+            { ...axisStyle, type: 'value', name: '风险率 %', max: 100, splitLine: { show: false }, nameTextStyle: { color: palette.text } }
+        ],
+        series: [
+            { name: '高温', type: 'bar', stack: 'risk', data: rows.map(item => item.high_temp_count), itemStyle: { color: palette.amber } },
+            { name: '高湿', type: 'bar', stack: 'risk', data: rows.map(item => item.high_humidity_count), itemStyle: { color: palette.blue } },
+            { name: '污染', type: 'bar', stack: 'risk', data: rows.map(item => item.pollution_count), itemStyle: { color: palette.violet } },
+            { name: '火险', type: 'bar', stack: 'risk', data: rows.map(item => item.fire_risk_count), itemStyle: { color: palette.coral } },
+            { name: '风险率', type: 'line', yAxisIndex: 1, smooth: true, showSymbol: false, data: rows.map(item => item.risk_rate), itemStyle: { color: palette.green2 }, lineStyle: { width: 3 } }
+        ]
+    }, true);
+}
+
+function renderComfortTrend(data) {
+    const rows = data.comfort_detail;
+    initChart('comfortTrendChart').setOption({
+        tooltip: baseTooltip(),
+        legend: { top: 3, textStyle: { color: palette.text, fontSize: 9 } },
+        grid: { left: 46, right: 48, top: 44, bottom: 45 },
+        dataZoom: [{ type: 'inside' }, { type: 'slider', height: 12, bottom: 5 }],
+        xAxis: { ...axisStyle, type: 'category', data: rows.map(item => item.date.slice(5)) },
+        yAxis: [
+            { ...axisStyle, type: 'value', name: '样本数', nameTextStyle: { color: palette.text } },
+            { ...axisStyle, type: 'value', name: '舒适率 %', max: 100, splitLine: { show: false }, nameTextStyle: { color: palette.text } }
+        ],
+        series: [
+            { name: '舒适', type: 'bar', stack: 'comfort', data: rows.map(item => item.comfortable_count), itemStyle: { color: palette.green } },
+            { name: '关注', type: 'bar', stack: 'comfort', data: rows.map(item => item.attention_count), itemStyle: { color: palette.amber } },
+            { name: '不适', type: 'bar', stack: 'comfort', data: rows.map(item => item.uncomfortable_count), itemStyle: { color: palette.coral } },
+            { name: '舒适率', type: 'line', yAxisIndex: 1, smooth: true, showSymbol: false, data: rows.map(item => item.comfort_rate), itemStyle: { color: palette.cyan }, lineStyle: { width: 3 } }
+        ]
+    }, true);
+}
+
+function renderTopN(data) {
+    const rows = [...data.topn].reverse();
+    initChart('topNChart').setOption({
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(6,20,16,.96)',
+            borderColor: 'rgba(61,226,159,.25)',
+            textStyle: { color: '#dff5e9', fontSize: 11 },
+            formatter: params => {
+                const item = rows[params[0].dataIndex];
+                return [
+                    `Top ${item.rank} · ${item.date}`,
+                    `风险分：${item.risk_score}`,
+                    `危险样本：${item.dangerous_count}`,
+                    `温度峰值：${item.temperature_peak} ℃`,
+                    `最低湿度：${item.humidity_low} %`,
+                    `PM2.5 峰值：${item.pm25_peak}`
+                ].join('<br>');
+            }
+        },
+        legend: { top: 3, textStyle: { color: palette.text, fontSize: 9 } },
+        grid: { left: 90, right: 60, top: 42, bottom: 28 },
+        xAxis: [
+            { ...axisStyle, type: 'value', name: '风险分', nameTextStyle: { color: palette.text } },
+            { ...axisStyle, type: 'value', name: '危险样本', splitLine: { show: false }, nameTextStyle: { color: palette.text } }
+        ],
+        yAxis: {
+            ...axisStyle,
+            type: 'category',
+            data: rows.map(item => `Top ${item.rank}  ${item.date}`)
+        },
+        series: [
+            {
+                name: '综合风险分',
+                type: 'bar',
+                data: rows.map(item => item.risk_score),
+                itemStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                        { offset: 0, color: palette.amber },
+                        { offset: 1, color: palette.coral }
+                    ]),
+                    borderRadius: [0, 5, 5, 0]
+                },
+                label: { show: true, position: 'right', color: '#dff5e9', fontSize: 10 }
+            },
+            {
+                name: '危险样本数',
+                type: 'line',
+                xAxisIndex: 1,
+                data: rows.map(item => item.dangerous_count),
+                itemStyle: { color: palette.cyan },
+                lineStyle: { width: 2 }
+            }
         ]
     }, true);
 }
 
 function renderDistribution(data) {
+    const totals = data.comfort_detail.reduce((result, item) => {
+        result[0].value += item.comfortable_count;
+        result[1].value += item.attention_count;
+        result[2].value += item.uncomfortable_count;
+        return result;
+    }, [
+        { name: '舒适', value: 0 },
+        { name: '关注', value: 0 },
+        { name: '不适', value: 0 }
+    ]);
     initChart('distributionChart').setOption({
         tooltip: { ...baseTooltip(), trigger: 'axis' },
         grid: { left: 48, right: 16, top: 24, bottom: 35 },
         xAxis: { ...axisStyle, type: 'value' },
-        yAxis: { ...axisStyle, type: 'category', data: data.temperature_distribution.map(item => item.name) },
+        yAxis: { ...axisStyle, type: 'category', data: totals.map(item => item.name) },
         series: [{
             type: 'bar',
-            data: data.temperature_distribution.map((item, index) => ({
+            data: totals.map((item, index) => ({
                 value: item.value,
-                itemStyle: { color: [palette.blue, palette.cyan, palette.green, palette.amber, palette.coral][index], borderRadius: [0,5,5,0] }
+                itemStyle: { color: [palette.green, palette.amber, palette.coral][index], borderRadius: [0,5,5,0] }
             })),
             label: { show: true, position: 'right', color: '#cce2d8', fontSize: 9 }
         }]
@@ -312,6 +453,201 @@ async function loadRecords(page = 1) {
     $('nextPage').disabled = data.page >= data.page_count;
 }
 
+function formatBytes(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    return `${(bytes / (1024 ** index)).toFixed(index ? 1 : 0)} ${units[index]}`;
+}
+
+function showSelectedFile(file) {
+    if (!file) {
+        $('selectedFileName').textContent = '文件将上传到 /waether/input';
+        $('selectedFileMeta').textContent = '支持本地文件直接拖拽，无需使用 Windows 搜索';
+        return;
+    }
+    $('selectedFileName').textContent = file.name;
+    $('selectedFileMeta').textContent = `${formatBytes(file.size)} · 修改于 ${new Date(file.lastModified).toLocaleString('zh-CN', { hour12: false })}`;
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+}
+
+async function loadHdfsFiles(path = hdfsPath) {
+    try {
+        const data = await fetchJson(`/api/hdfs/files/?path=${encodeURIComponent(path)}`);
+        hdfsPath = data.path;
+        hdfsParentPath = data.parent;
+        $('hdfsCurrentPath').textContent = data.path;
+        $('hdfsParentButton').disabled = !data.parent;
+        $('hdfsFilesBody').innerHTML = data.items.map(item => {
+            const modified = new Date(item.modification_time).toLocaleString('zh-CN', { hour12: false });
+            const isDirectory = item.type === 'directory';
+            return `<tr>
+                <td><button class="file-name-button ${isDirectory ? 'directory' : ''}" data-open="${escapeHtml(item.path)}" data-type="${item.type}">${isDirectory ? '▣' : '▤'} ${escapeHtml(item.name)}</button></td>
+                <td>${isDirectory ? '目录' : '文件'}</td>
+                <td>${isDirectory ? '--' : formatBytes(item.length)}</td>
+                <td>${modified}</td>
+                <td>
+                    ${isDirectory ? '' : `<button class="file-action" data-preview="${escapeHtml(item.path)}">查看</button>`}
+                    <button class="file-action delete" data-delete="${escapeHtml(item.path)}" data-recursive="${isDirectory}">删除</button>
+                </td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="5" class="empty-state">目录为空</td></tr>';
+    } catch (error) {
+        $('hdfsFilesBody').innerHTML = `<tr><td colspan="5">${escapeHtml(error.message)}</td></tr>`;
+        showToast(error.message);
+    }
+}
+
+async function previewHdfsFile(path) {
+    try {
+        $('previewPanel').open = true;
+        $('previewTitle').textContent = path;
+        $('filePreviewContent').textContent = '正在读取...';
+        const data = await fetchJson(`/api/hdfs/preview/?path=${encodeURIComponent(path)}`);
+        $('filePreviewContent').textContent = data.content;
+    } catch (error) {
+        $('filePreviewContent').textContent = error.message;
+        showToast(error.message);
+    }
+}
+
+async function deleteHdfsItem(path, recursive) {
+    if (!window.confirm(`确定删除 ${path} 吗？`)) return;
+    try {
+        const data = await fetchJson('/api/hdfs/delete/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, recursive })
+        });
+        showToast(data.message);
+        await loadHdfsFiles();
+    } catch (error) {
+        showToast(error.message);
+    }
+}
+
+function setJobStatus(job) {
+    const statusText = {
+        queued: '任务排队中',
+        running: 'MapReduce 计算中',
+        success: '计算与同步完成',
+        failed: '任务执行失败'
+    };
+    $('jobStatusText').textContent = job ? (statusText[job.status] || job.message) : '暂无运行任务';
+    $('jobStatusTime').textContent = job?.finished_at || job?.started_at || job?.created_at || '--';
+    $('jobStatusDot').className = `status-dot job-${job?.status || 'idle'}`;
+    $('jobProgress').className = job?.status || '';
+    $('jobLog').textContent = job?.output_log || job?.message || '等待任务...';
+    const busy = job && ['queued', 'running'].includes(job.status);
+    $('runJobButton').disabled = busy;
+    $('uploadButton').disabled = busy;
+}
+
+async function pollJobStatus(jobId = activeJobId) {
+    if (jobPollTimer) clearTimeout(jobPollTimer);
+    try {
+        const data = await fetchJson(`/api/hdfs/jobs/status/${jobId ? `?id=${jobId}` : ''}`);
+        const job = data.job;
+        setJobStatus(job);
+        if (!job) return;
+        activeJobId = job.id;
+        if (['queued', 'running'].includes(job.status)) {
+            jobPollTimer = setTimeout(() => pollJobStatus(job.id), 3000);
+        } else {
+            activeJobId = null;
+            await loadHdfsFiles();
+            if (job.status === 'success') {
+                showToast(job.message);
+                if (job.auto_refresh && $('trendChart')) await loadDashboard(false, false);
+            } else if (job.status === 'failed') {
+                showToast(job.message);
+            }
+        }
+    } catch (error) {
+        setJobStatus(null);
+        showToast(error.message);
+    }
+}
+
+async function startMapReduceJob() {
+    try {
+        const data = await fetchJson('/api/hdfs/jobs/start/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ auto_refresh: $('autoRefreshCharts').checked })
+        });
+        activeJobId = data.job.id;
+        setJobStatus(data.job);
+        showToast('MapReduce 任务已启动');
+        pollJobStatus(activeJobId);
+    } catch (error) {
+        showToast(error.message);
+        pollJobStatus();
+    }
+}
+
+async function uploadHdfsFile(event) {
+    event.preventDefault();
+    const file = $('hdfsFile').files[0];
+    if (!file) {
+        showToast('请先选择文件');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('path', '/waether/input');
+    formData.append('clear_input', String($('clearInput').checked));
+    formData.append('overwrite', String($('overwriteFile').checked));
+    formData.append('auto_run', String($('autoRunJob').checked));
+    formData.append('auto_refresh', String($('autoRefreshCharts').checked));
+    $('uploadButton').disabled = true;
+    $('jobProgress').className = 'running';
+    $('jobLog').textContent = `正在上传 ${file.name}...`;
+    try {
+        const data = await fetchJson('/api/hdfs/upload/', { method: 'POST', body: formData });
+        showToast(data.message);
+        $('hdfsUploadForm').reset();
+        $('clearInput').checked = true;
+        $('overwriteFile').checked = true;
+        $('autoRunJob').checked = true;
+        $('autoRefreshCharts').checked = true;
+        showSelectedFile(null);
+        await loadHdfsFiles('/waether/input');
+        if (data.job) {
+            activeJobId = data.job.id;
+            setJobStatus(data.job);
+            pollJobStatus(activeJobId);
+        } else {
+            $('jobProgress').className = 'success';
+            $('jobLog').textContent = data.message;
+            $('uploadButton').disabled = false;
+        }
+    } catch (error) {
+        $('jobProgress').className = 'failed';
+        $('jobLog').textContent = error.message;
+        $('uploadButton').disabled = false;
+        showToast(error.message);
+    }
+}
+
+async function syncDatabaseAndRefresh() {
+    $('syncResultsButton').disabled = true;
+    try {
+        const data = await fetchJson('/api/hdfs/sync/', { method: 'POST' });
+        showToast(data.message);
+        if ($('trendChart')) await loadDashboard(false, false);
+    } catch (error) {
+        showToast(error.message);
+    } finally {
+        $('syncResultsButton').disabled = false;
+    }
+}
+
 function showToast(message) {
     const toast = $('toast');
     toast.textContent = message;
@@ -319,7 +655,7 @@ function showToast(message) {
     setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-function bindEvents() {
+function bindDashboardEvents() {
     $('applyFilter').addEventListener('click', () => loadDashboard(true, true));
     $('resetFilter').addEventListener('click', () => {
         $('startDate').value = '';
@@ -341,6 +677,61 @@ function bindEvents() {
     window.addEventListener('resize', () => Object.values(charts).forEach(chart => chart.resize()));
 }
 
+function bindHdfsEvents() {
+    $('hdfsUploadForm').addEventListener('submit', uploadHdfsFile);
+    $('hdfsFile').addEventListener('change', () => showSelectedFile($('hdfsFile').files[0]));
+    const dropZone = $('fileDropZone');
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, event => {
+            event.preventDefault();
+            dropZone.classList.add('dragging');
+        });
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, event => {
+            event.preventDefault();
+            dropZone.classList.remove('dragging');
+        });
+    });
+    dropZone.addEventListener('drop', event => {
+        const file = event.dataTransfer.files[0];
+        if (!file) return;
+        const extension = file.name.toLowerCase().split('.').pop();
+        if (!['csv', 'txt'].includes(extension)) {
+            showToast('请选择 CSV 或 TXT 文件');
+            return;
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        $('hdfsFile').files = transfer.files;
+        showSelectedFile(file);
+    });
+    $('runJobButton').addEventListener('click', startMapReduceJob);
+    $('syncResultsButton').addEventListener('click', syncDatabaseAndRefresh);
+    $('refreshHdfsButton').addEventListener('click', () => loadHdfsFiles());
+    $('hdfsParentButton').addEventListener('click', () => {
+        if (hdfsParentPath) loadHdfsFiles(hdfsParentPath);
+    });
+    $('hdfsFilesBody').addEventListener('click', event => {
+        const openButton = event.target.closest('[data-open]');
+        const previewButton = event.target.closest('[data-preview]');
+        const deleteButton = event.target.closest('[data-delete]');
+        if (openButton) {
+            if (openButton.dataset.type === 'directory') loadHdfsFiles(openButton.dataset.open);
+            else previewHdfsFile(openButton.dataset.open);
+        } else if (previewButton) {
+            previewHdfsFile(previewButton.dataset.preview);
+        } else if (deleteButton) {
+            deleteHdfsItem(deleteButton.dataset.delete, deleteButton.dataset.recursive === 'true');
+        }
+    });
+    $('closePreviewButton').addEventListener('click', () => {
+        $('previewTitle').textContent = '文件预览';
+        $('filePreviewContent').textContent = '点击文件的“查看”按钮可预览前 64 KB 内容。';
+        $('previewPanel').open = false;
+    });
+}
+
 function startClock() {
     const tick = () => {
         $('clock').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -351,6 +742,13 @@ function startClock() {
 
 document.addEventListener('DOMContentLoaded', () => {
     startClock();
-    bindEvents();
-    loadDashboard();
+    if ($('trendChart')) {
+        bindDashboardEvents();
+        loadDashboard();
+    }
+    if ($('hdfsUploadForm')) {
+        bindHdfsEvents();
+        loadHdfsFiles();
+        pollJobStatus();
+    }
 });

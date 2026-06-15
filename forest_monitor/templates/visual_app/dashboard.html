@@ -24,13 +24,14 @@
             </div>
         </div>
         <div class="header-status">
+            <a class="nav-link" href="{% url 'visual_app:hdfs-console' %}">HDFS 作业控制台</a>
             <div class="status-item">
                 <span class="status-dot"></span>
                 <div><small>系统状态</small><strong>实时在线</strong></div>
             </div>
             <div class="status-item">
                 <small>数据源</small>
-                <strong id="sourceLabel">HDFS MapReduce</strong>
+                <strong id="sourceLabel">SQLite 计算结果库</strong>
             </div>
             <div class="clock" id="clock">--:--:--</div>
         </div>
@@ -41,7 +42,7 @@
             <div>
                 <p class="eyebrow">SMART ECOLOGICAL MONITORING</p>
                 <h2><span id="cityName">森林公园</span>环境态势</h2>
-                <p class="hero-copy">直接读取 HDFS 中的 MapReduce 日统计结果，展示气温、湿度、空气质量、光照峰值和风险预警。</p>
+                <p class="hero-copy">四种 MapReduce 计算结果从 HDFS 同步至数据库，统一展示小时画像、风险事件、舒适度与 TopN 排名。</p>
                 <div class="hero-meta">
                     <span id="dateRange">加载中</span>
                     <span id="recordCount">-- 条记录</span>
@@ -107,12 +108,27 @@
             </article>
 
             <article class="panel chart-panel span-6">
-                <div class="panel-head"><div><p class="eyebrow">PEAK COMPARISON</p><h3>各日环境峰值对比</h3></div></div>
+                <div class="panel-head"><div><p class="eyebrow">24-HOUR PROFILE</p><h3>MapReduce 24 小时环境画像</h3></div></div>
                 <div class="chart" id="hourlyChart"></div>
             </article>
 
+            <article class="panel chart-panel span-6">
+                <div class="panel-head"><div><p class="eyebrow">MAPREDUCE RISK TREND</p><h3>每日风险事件与风险率趋势</h3></div></div>
+                <div class="chart" id="riskTrendChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-6">
+                <div class="panel-head"><div><p class="eyebrow">MAPREDUCE COMFORT TREND</p><h3>每日舒适度样本与舒适率趋势</h3></div></div>
+                <div class="chart" id="comfortTrendChart"></div>
+            </article>
+
+            <article class="panel chart-panel span-12">
+                <div class="panel-head"><div><p class="eyebrow">MAPREDUCE TOP N</p><h3>高风险日期 Top 10 排名</h3></div><span class="panel-note">综合高温、低湿、污染与强光计算</span></div>
+                <div class="chart" id="topNChart"></div>
+            </article>
+
             <article class="panel chart-panel span-4">
-                <div class="panel-head"><div><p class="eyebrow">TEMPERATURE BANDS</p><h3>温度区间分布</h3></div></div>
+                <div class="panel-head"><div><p class="eyebrow">COMFORT ANALYSIS</p><h3>舒适度样本分布</h3></div></div>
                 <div class="chart" id="distributionChart"></div>
             </article>
 

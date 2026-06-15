@@ -1,5 +1,4 @@
 
-import exp02.EJob;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
@@ -15,8 +14,6 @@ import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import javax.naming.Context;
-import java.io.File;
 import java.io.IOException;
 
 public class WeatherStatsMR extends Configured implements Tool {
@@ -142,65 +139,21 @@ public class WeatherStatsMR extends Configured implements Tool {
 
     @Override
     public int run(String[] args) throws Exception {
-        if (args.length != 0 && args.length != 2) {
-            System.err.println("用法：WeatherStatsMR [输入目录 输出目录]");
+        if (args.length != 0 && args.length != 2 && args.length != 3) {
+            System.err.println("Usage: WeatherStatsMR [input output --overwrite]");
             return 2;
         }
 
-        String inputPath = args.length == 2 ? args[0] : "/waether/input";
-        String outputPath = args.length == 2 ? args[1] : "/waether/output";
+        String inputPath = args.length >= 2 ? args[0] : "/waether/input";
+        String outputPath = args.length >= 2 ? args[1] : "/waether/output";
+        boolean overwrite = args.length == 3 && "--overwrite".equals(args[2]);
 
         System.setProperty("HADOOP_USER_NAME", "root");
-        // 获取 target/classes 的真实文件路径，正确处理中文和空格
-        File classesDir = new File(
-                WeatherStatsMR.class
-                        .getProtectionDomain()
-                        .getCodeSource()
-                        .getLocation()
-                        .toURI()
-        );
-
-        System.out.println("编译目录：" + classesDir.getAbsolutePath());
-
-        File jarFile = EJob.createTempJar(classesDir.getAbsolutePath());
-
-        if (jarFile == null || !jarFile.exists()) {
-            throw new IllegalStateException(
-                    "EJob 自动打包失败，编译目录：" + classesDir.getAbsolutePath()
-            );
-        }
-
-        System.out.println("临时 Jar：" + jarFile.getAbsolutePath());
-
-        ClassLoader classLoader = EJob.getClassLoader();
-        if (classLoader != null) {
-            Thread.currentThread().setContextClassLoader(classLoader);
-        }
-
-        Configuration conf = getConf();
-        conf.set("fs.defaultFS", "hdfs://hd0:9000");
-        conf.set("mapreduce.framework.name", "yarn");
-        conf.set("yarn.resourcemanager.hostname", "hd1");
-        conf.set("yarn.resourcemanager.address", "hd1:8032");
-        conf.set("yarn.resourcemanager.scheduler.address", "hd1:8030");
-        conf.set("yarn.resourcemanager.resource-tracker.address", "hd1:8031");
-        conf.set("yarn.resourcemanager.admin.address", "hd1:8033");
-        conf.set("mapreduce.app-submission.cross-platform", "true");
-        conf.set(
-                "mapreduce.application.classpath",
-                "/usr/local/hadoop/etc/hadoop,"
-                        + "/usr/local/hadoop/share/hadoop/mapreduce/*,"
-                        + "/usr/local/hadoop/share/hadoop/mapreduce/lib/*,"
-                        + "/usr/local/hadoop/share/hadoop/common/*,"
-                        + "/usr/local/hadoop/share/hadoop/common/lib/*,"
-                        + "/usr/local/hadoop/share/hadoop/hdfs/*,"
-                        + "/usr/local/hadoop/share/hadoop/hdfs/lib/*,"
-                        + "/usr/local/hadoop/share/hadoop/yarn/*,"
-                        + "/usr/local/hadoop/share/hadoop/yarn/lib/*"
-        );
+        Configuration conf = WeatherJobSupport.configureCluster(getConf());
+        WeatherJobSupport.prepareOutput(conf, outputPath, overwrite);
 
         Job job = Job.getInstance(conf, "weather statistics");
-        job.setJar(jarFile.getAbsolutePath());
+        WeatherJobSupport.attachJobJar(job, WeatherStatsMR.class);
 
         job.setMapperClass(WeatherMapper.class);
         job.setReducerClass(WeatherReducer.class);
@@ -220,16 +173,7 @@ public class WeatherStatsMR extends Configured implements Tool {
                 new Path(outputPath)
         );
 
-        if (job.waitForCompletion(true)) {
-            return 0;
-        }
-
-        String failureInfo = job.getStatus().getFailureInfo();
-        System.err.println("MapReduce 作业执行失败。");
-        if (failureInfo != null && !failureInfo.trim().isEmpty()) {
-            System.err.println("失败原因：" + failureInfo);
-        }
-        return 1;
+        return WeatherJobSupport.waitForCompletion(job);
     }
 
     public static void main(String[] args) throws Exception {

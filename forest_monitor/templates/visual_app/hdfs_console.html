@@ -1,0 +1,134 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HDFS 文件与 MapReduce 作业控制台">
+    <title>HDFS 作业控制台</title>
+    <link rel="stylesheet" href="{% static 'visual_app/css/dashboard.css' %}">
+</head>
+<body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark"><span></span><span></span><span></span></div>
+            <div>
+                <p class="eyebrow">HDFS JOB CONSOLE</p>
+                <h1>HDFS 文件与 MapReduce 作业控制台</h1>
+            </div>
+        </div>
+        <div class="header-status">
+            <a class="nav-link active" href="{% url 'visual_app:hdfs-console' %}">HDFS 控制台</a>
+            <a class="nav-link" href="{% url 'visual_app:dashboard' %}">返回数据看板</a>
+            <div class="clock" id="clock">--:--:--</div>
+        </div>
+    </header>
+
+    <main class="dashboard-shell console-shell">
+        <section class="panel console-intro">
+            <div>
+                <p class="eyebrow">DATA PIPELINE MANAGEMENT</p>
+                <h2>上传、计算、同步，一页完成</h2>
+                <p>上传文件到 HDFS 后，可自动执行五类 MapReduce 并将结果同步到 SQLite。计算完成后返回数据看板即可查看最新图表。</p>
+            </div>
+            <a class="primary-btn nav-button" href="{% url 'visual_app:dashboard' %}">查看数据图表</a>
+        </section>
+
+        <section class="console-workspace">
+            <div class="console-top-grid">
+                <form class="panel upload-box console-card" id="hdfsUploadForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="console-card-head">
+                        <div>
+                            <span class="step-number">01</span>
+                            <div><p class="eyebrow">UPLOAD DATA</p><h3>上传数据文件</h3></div>
+                        </div>
+                        <code>/waether/input</code>
+                    </div>
+                    <label class="file-drop" id="fileDropZone">
+                        <input type="file" id="hdfsFile" name="file" accept=".csv,.txt">
+                        <strong>点击选择，或将 CSV/TXT 拖到这里</strong>
+                        <span id="selectedFileName">文件将上传到 /waether/input</span>
+                        <small id="selectedFileMeta">支持本地文件直接拖拽，无需使用 Windows 搜索</small>
+                    </label>
+                    <details class="advanced-options">
+                        <summary>上传与计算选项</summary>
+                        <div class="option-grid">
+                            <label><input type="checkbox" id="clearInput" checked><span>上传前清空 input<small>避免新旧数据重复计算</small></span></label>
+                            <label><input type="checkbox" id="overwriteFile" checked><span>覆盖同名文件<small>保留最新上传版本</small></span></label>
+                            <label><input type="checkbox" id="autoRunJob" checked><span>上传后自动计算<small>执行全部 MapReduce</small></span></label>
+                            <label><input type="checkbox" id="autoRefreshCharts" checked><span>完成后标记更新<small>返回看板查看新图表</small></span></label>
+                        </div>
+                    </details>
+                    <div class="console-actions">
+                        <button class="primary-btn" type="submit" id="uploadButton">上传到 HDFS</button>
+                        <button class="ghost-btn" type="button" id="runJobButton">运行全部 MapReduce</button>
+                        <button class="ghost-btn" type="button" id="syncResultsButton">同步数据库</button>
+                    </div>
+                </form>
+
+                <section class="panel job-card console-card">
+                    <div class="console-card-head">
+                        <div>
+                            <span class="step-number">02</span>
+                            <div><p class="eyebrow">PIPELINE STATUS</p><h3>计算任务状态</h3></div>
+                        </div>
+                        <div class="job-state">
+                            <span class="status-dot" id="jobStatusDot"></span>
+                            <strong id="jobStatusText">暂无运行任务</strong>
+                        </div>
+                    </div>
+                    <div class="job-summary">
+                        <span>任务时间</span>
+                        <strong id="jobStatusTime">--</strong>
+                    </div>
+                    <div class="progress-track"><span id="jobProgress"></span></div>
+                    <pre class="job-log" id="jobLog">等待任务...</pre>
+                    <div class="job-hint">任务会在 Django 后台运行，请保持服务终端开启。</div>
+                </section>
+            </div>
+
+            <section class="panel hdfs-browser standalone-browser">
+                <div class="console-card-head browser-section-head">
+                    <div>
+                        <span class="step-number">03</span>
+                        <div><p class="eyebrow">HDFS FILE BROWSER</p><h3>浏览与管理文件</h3></div>
+                    </div>
+                    <div class="browser-toolbar">
+                        <div>
+                            <span class="browser-label">当前位置</span>
+                            <code id="hdfsCurrentPath">/waether</code>
+                        </div>
+                        <div class="console-actions">
+                            <button class="ghost-btn" type="button" id="hdfsParentButton">上级目录</button>
+                            <button class="ghost-btn" type="button" id="refreshHdfsButton">刷新文件</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="hdfs-table-wrap">
+                    <table class="hdfs-table">
+                        <thead><tr><th>名称</th><th>类型</th><th>大小</th><th>修改时间</th><th>操作</th></tr></thead>
+                        <tbody id="hdfsFilesBody"><tr><td colspan="5">正在读取 HDFS...</td></tr></tbody>
+                    </table>
+                </div>
+                <details class="file-preview" id="previewPanel">
+                    <summary>文件内容预览</summary>
+                    <div class="preview-body">
+                        <div class="browser-toolbar">
+                            <strong id="previewTitle">文件预览</strong>
+                            <button class="ghost-btn" type="button" id="closePreviewButton">清空</button>
+                        </div>
+                        <pre id="filePreviewContent">点击文件的“查看”按钮可预览前 64 KB 内容。</pre>
+                    </div>
+                </details>
+            </section>
+        </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <script src="{% static 'visual_app/js/dashboard.js' %}"></script>
+</body>
+</html>

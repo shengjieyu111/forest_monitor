@@ -1,66 +1,19 @@
-import json
 import math
-import time
 from collections import Counter
-from pathlib import Path
 from statistics import mean
-from urllib.parse import quote
-from urllib.request import Request, urlopen
 
-from django.conf import settings
-
-
-HDFS_HOST = getattr(settings, 'HDFS_WEB_HOST', 'hd0')
-HDFS_PORT = getattr(settings, 'HDFS_WEB_PORT', 50070)
-HDFS_OUTPUT_PATH = getattr(settings, 'HDFS_OUTPUT_PATH', '/waether/output')
-HDFS_USER = getattr(settings, 'HDFS_USER', 'root')
-HDFS_PART_FILE = getattr(settings, 'HDFS_PART_FILE', 'part-r-00000')
-HDFS_TIMEOUT = getattr(settings, 'HDFS_TIMEOUT', 20)
-CACHE_SECONDS = 30
-CACHE_PATH = Path(settings.BASE_DIR) / 'visual_app' / 'hdfs_result_cache.json'
-
-_memory_cache = {'loaded_at': 0.0, 'rows': None, 'status': None}
+from mapreduce_app.models import (
+    DailyComfortStat,
+    DailyRiskStat,
+    DailyWeatherStat,
+    HourlyWeatherProfile,
+    MapReduceSyncLog,
+    TopRiskDay,
+)
 
 
 def _round(value, digits=2):
     return round(value, digits)
-
-
-def _webhdfs_url(path, operation):
-    encoded_path = quote(path, safe='/')
-    return (
-        f'http://{HDFS_HOST}:{HDFS_PORT}/webhdfs/v1{encoded_path}'
-        f'?op={operation}&user.name={quote(HDFS_USER)}'
-    )
-
-
-def _read_url(url):
-    request = Request(url, headers={'User-Agent': 'forest-monitor-dashboard/1.0'})
-    with urlopen(request, timeout=HDFS_TIMEOUT) as response:
-        return response.read().decode('utf-8')
-
-
-def _parse_result_line(line):
-    date, values_text = line.split('\t', 1)
-    values = {}
-    for item in values_text.split(','):
-        key, value = item.split('=', 1)
-        values[key.strip()] = value.strip()
-
-    warning = values.get('risk_warning', '正常')
-    return {
-        'date': date.strip(),
-        'temperature_avg': float(values['temp_avg']),
-        'temperature_max': float(values['temp_peak']),
-        'humidity_avg': float(values['humidity_avg']),
-        'humidity_max': float(values['humidity_peak']),
-        'pm25_avg': float(values['pm25_avg']),
-        'pm25_max': float(values['pm25_peak']),
-        'illumination_avg': float(values['illumination_avg']),
-        'illumination_max': float(values['illumination_peak']),
-        'warning': warning,
-        'risk': _warning_risk(warning),
-    }
 
 
 def _warning_risk(warning):
@@ -74,93 +27,81 @@ def _warning_risk(warning):
     return '低风险'
 
 
-def _write_cache(rows):
-    CACHE_PATH.write_text(
-        json.dumps(rows, ensure_ascii=False, indent=2),
-        encoding='utf-8',
-    )
+def _daily_row(stat):
+    warning = stat.risk_warning
+    return {
+        'date': stat.date.isoformat(),
+        'temperature_avg': stat.temperature_avg,
+        'temperature_max': stat.temperature_peak,
+        'humidity_avg': stat.humidity_avg,
+        'humidity_max': stat.humidity_peak,
+        'pm25_avg': stat.pm25_avg,
+        'pm25_max': stat.pm25_peak,
+        'illumination_avg': stat.illumination_avg,
+        'illumination_max': stat.illumination_peak,
+        'warning': warning,
+        'risk': _warning_risk(warning),
+    }
 
 
-def _read_cache():
-    if not CACHE_PATH.exists():
-        return None
-    return json.loads(CACHE_PATH.read_text(encoding='utf-8'))
-
-
-def get_hdfs_daily_stats(force=False):
-    now = time.monotonic()
-    if (
-        not force
-        and _memory_cache['rows'] is not None
-        and now - _memory_cache['loaded_at'] < CACHE_SECONDS
-    ):
-        return _memory_cache['rows'], _memory_cache['status']
-
-    file_path = f"{HDFS_OUTPUT_PATH.rstrip('/')}/{HDFS_PART_FILE}"
-    try:
-        content = _read_url(_webhdfs_url(file_path, 'OPEN'))
-        rows = [
-            _parse_result_line(line)
-            for line in content.splitlines()
-            if line.strip()
-        ]
-        rows.sort(key=lambda row: row['date'])
-        if not rows:
-            raise ValueError('HDFS MapReduce 结果文件为空')
-        _write_cache(rows)
-        status = {
-            'mode': 'hdfs',
-            'online': True,
-            'label': 'HDFS 实时结果',
-            'path': file_path,
-            'host': f'{HDFS_HOST}:{HDFS_PORT}',
-        }
-    except Exception as error:
-        rows = _read_cache()
-        if not rows:
-            raise RuntimeError(f'无法读取 HDFS 结果：{error}') from error
-        status = {
-            'mode': 'cache',
-            'online': False,
-            'label': 'HDFS 缓存结果',
-            'path': file_path,
-            'host': f'{HDFS_HOST}:{HDFS_PORT}',
-            'error': str(error),
-        }
-
-    _memory_cache.update({'loaded_at': now, 'rows': rows, 'status': status})
-    return rows, status
-
-
-def _filter_rows(rows, start_date=None, end_date=None):
+def _filter_queryset(queryset, start_date=None, end_date=None):
     if start_date:
-        rows = [row for row in rows if row['date'] >= start_date]
+        queryset = queryset.filter(date__gte=start_date)
     if end_date:
-        rows = [row for row in rows if row['date'] <= end_date]
-    return rows
+        queryset = queryset.filter(date__lte=end_date)
+    return queryset
 
 
-def build_dashboard_payload(start_date=None, end_date=None, force=False):
-    all_rows, source = get_hdfs_daily_stats(force=force)
-    rows = _filter_rows(all_rows, start_date, end_date)
-    if not rows:
+def _source_status():
+    latest = MapReduceSyncLog.objects.filter(status='success').first()
+    return {
+        'mode': 'database',
+        'online': True,
+        'label': 'SQLite 计算结果库',
+        'path': 'mapreduce_app_*',
+        'host': 'db.sqlite3',
+        'synced_at': latest.synced_at.isoformat() if latest else None,
+    }
+
+
+def build_dashboard_payload(start_date=None, end_date=None):
+    daily_stats = list(_filter_queryset(
+        DailyWeatherStat.objects.all(),
+        start_date,
+        end_date,
+    ))
+    if not daily_stats:
         return {
             'empty': True,
-            'message': '所选日期范围内没有 HDFS 聚合结果',
-            'source': source,
+            'message': '数据库中没有 MapReduce 计算结果，请先执行同步命令',
+            'source': _source_status(),
         }
+
+    rows = [_daily_row(stat) for stat in daily_stats]
+    dates = [stat.date for stat in daily_stats]
+    hourly_stats = list(HourlyWeatherProfile.objects.all())
+    risk_stats = {
+        stat.date: stat
+        for stat in DailyRiskStat.objects.filter(date__in=dates)
+    }
+    comfort_stats = {
+        stat.date: stat
+        for stat in DailyComfortStat.objects.filter(date__in=dates)
+    }
+    top_risk_days = list(TopRiskDay.objects.all())
 
     risk_counts = Counter(row['risk'] for row in rows)
     warning_rows = [row for row in rows if row['warning'] != '正常']
     latest = rows[-1]
+    average_risk_rate = mean(
+        [stat.risk_rate for stat in risk_stats.values()] or [0]
+    )
+    average_comfort_rate = mean(
+        [stat.comfort_rate for stat in comfort_stats.values()] or [100]
+    )
     health_score = max(
         0,
-        round(
-            100
-            - risk_counts['低风险'] * 5
-            - risk_counts['中风险'] * 12
-            - risk_counts['高风险'] * 22
-        ),
+        round(100 - average_risk_rate * 0.55 - (100 - average_comfort_rate) * 0.25),
     )
 
     temperature_distribution = [
@@ -173,26 +114,51 @@ def build_dashboard_payload(start_date=None, end_date=None, force=False):
     heatmap_metrics = ['平均温度', '平均湿度', '平均PM2.5', '平均光照(k)']
     heatmap = []
     for date_index, row in enumerate(rows):
-        metric_values = [
+        values = [
             row['temperature_avg'],
             row['humidity_avg'],
             row['pm25_avg'],
             row['illumination_avg'] / 1000,
         ]
-        for metric_index, value in enumerate(metric_values):
+        for metric_index, value in enumerate(values):
             heatmap.append([date_index, metric_index, _round(value)])
+
+    risk_detail = []
+    comfort_detail = []
+    for stat in daily_stats:
+        risk = risk_stats.get(stat.date)
+        comfort = comfort_stats.get(stat.date)
+        if risk:
+            risk_detail.append({
+                'date': stat.date.isoformat(),
+                'high_temp_count': risk.high_temp_count,
+                'high_humidity_count': risk.high_humidity_count,
+                'pollution_count': risk.pollution_count,
+                'fire_risk_count': risk.fire_risk_count,
+                'normal_count': risk.normal_count,
+                'risk_rate': risk.risk_rate,
+            })
+        if comfort:
+            comfort_detail.append({
+                'date': stat.date.isoformat(),
+                'comfort_index_avg': comfort.comfort_index_avg,
+                'comfortable_count': comfort.comfortable_count,
+                'attention_count': comfort.attention_count,
+                'uncomfortable_count': comfort.uncomfortable_count,
+                'comfort_rate': comfort.comfort_rate,
+            })
 
     return {
         'empty': False,
-        'source': source,
+        'source': _source_status(),
         'meta': {
             'city': '北京鹫峰国家森林公园',
             'start_date': rows[0]['date'],
             'end_date': rows[-1]['date'],
             'record_count': len(rows),
             'updated_at': rows[-1]['date'],
-            'sample_interval': 'MapReduce 日聚合',
-            'source_path': source['path'],
+            'sample_interval': '数据库持久化结果',
+            'source_path': 'SQLite: mapreduce_app',
         },
         'kpis': {
             'temperature_avg': _round(mean(row['temperature_avg'] for row in rows)),
@@ -203,6 +169,8 @@ def build_dashboard_payload(start_date=None, end_date=None, force=False):
             'risk_events': len(warning_rows),
             'high_risk_events': risk_counts['高风险'],
             'health_score': health_score,
+            'risk_rate': _round(average_risk_rate),
+            'comfort_rate': _round(average_comfort_rate),
         },
         'latest': {
             'time': latest['date'],
@@ -225,15 +193,31 @@ def build_dashboard_payload(start_date=None, end_date=None, force=False):
             'illumination_peak': [row['illumination_max'] for row in rows],
         },
         'daily': rows,
-        'peak_comparison': [
+        'hourly': [
             {
-                'date': row['date'],
-                'temperature': row['temperature_max'],
-                'humidity': row['humidity_max'],
-                'pm25': row['pm25_max'],
-                'illumination': _round(row['illumination_max'] / 1000),
+                'hour': f'{stat.hour:02d}:00',
+                'sample_count': stat.sample_count,
+                'temperature': stat.temperature_avg,
+                'humidity': stat.humidity_avg,
+                'pm25': stat.pm25_avg,
+                'illumination': stat.illumination_avg,
             }
-            for row in rows
+            for stat in hourly_stats
+        ],
+        'risk_detail': risk_detail,
+        'comfort_detail': comfort_detail,
+        'topn': [
+            {
+                'rank': stat.rank,
+                'date': stat.date.isoformat(),
+                'risk_score': stat.risk_score,
+                'dangerous_count': stat.dangerous_count,
+                'temperature_peak': stat.temperature_peak,
+                'humidity_low': stat.humidity_low,
+                'pm25_peak': stat.pm25_peak,
+                'illumination_peak': stat.illumination_peak,
+            }
+            for stat in top_risk_days
         ],
         'risk_distribution': [
             {'name': name, 'value': risk_counts[name]}
@@ -259,7 +243,7 @@ def build_dashboard_payload(start_date=None, end_date=None, force=False):
                 _round(mean(row['humidity_avg'] for row in rows)),
                 _round(mean(row['pm25_avg'] for row in rows)),
                 _round(mean(row['illumination_avg'] for row in rows) / 1000),
-                _round(len(warning_rows) / len(rows) * 100),
+                _round(average_risk_rate),
             ],
         },
         'alerts': [
@@ -284,8 +268,12 @@ def build_records_payload(
     start_date=None,
     end_date=None,
 ):
-    rows, source = get_hdfs_daily_stats()
-    rows = _filter_rows(rows, start_date, end_date)
+    queryset = _filter_queryset(
+        DailyWeatherStat.objects.all(),
+        start_date,
+        end_date,
+    )
+    rows = [_daily_row(stat) for stat in queryset]
     keyword = keyword.strip().lower()
     if keyword:
         rows = [
@@ -302,7 +290,7 @@ def build_records_payload(
     start = (page - 1) * page_size
 
     return {
-        'source': source,
+        'source': _source_status(),
         'page': page,
         'page_size': page_size,
         'page_count': page_count,
