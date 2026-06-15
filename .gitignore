@@ -13,3 +13,9 @@ __pycache__/
 db.sqlite3
 *.log
 .env
+
+# Java build files
+*.class
+
+# Temporary uploaded csv files
+datasets/upload_date/

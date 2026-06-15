@@ -88,6 +88,8 @@ public class VisitorHourlyCount {
         }
 
         Configuration conf = new Configuration();
+        conf.setBoolean("mapreduce.input.fileinputformat.input.dir.recursive", true);
+        conf.setBoolean("mapred.input.dir.recursive", true);
 
         Job job = Job.getInstance(conf, "visitor hourly count");
 

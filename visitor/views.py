@@ -21,6 +21,7 @@ from .services import (
     import_daily_result,
     import_gate_result,
     import_hourly_result,
+    import_local_date_partitions,
     import_visitor_records_from_csv,
     run_daily_mapreduce_remote,
     run_gate_mapreduce_remote,
@@ -225,7 +226,7 @@ def run_all_mr_and_import_api(request):
 
     upload_step = {
         "step": "upload_visitor_csv",
-        "name": "上传游客 CSV 并替换 HDFS 输入文件",
+        "name": "检查 HDFS 日期分区输入目录",
         "success": False,
     }
     try:
@@ -238,7 +239,7 @@ def run_all_mr_and_import_api(request):
         return JsonResponse(
             {
                 "code": 500,
-                "message": "游客 CSV 上传 HDFS 失败",
+                "message": "HDFS 日期分区输入目录检查失败",
                 "success": False,
                 "data": {"steps": steps},
             },
@@ -249,18 +250,32 @@ def run_all_mr_and_import_api(request):
 
     raw_import_step = {
         "step": "import_visitor_records",
-        "name": "导入最新游客原始数据到 MySQL",
+        "name": "检查游客原始数据 MySQL 同步状态",
         "success": False,
     }
     try:
-        raw_result = import_visitor_records_from_csv(clear_existing=True)
-        raw_import_step.update(
-            {
-                "success": True,
-                "imported_rows": raw_result.imported_rows,
-                "skipped_rows": raw_result.skipped_rows,
-            }
-        )
+        existing_rows = VisitorRecord.objects.count()
+        if existing_rows:
+            raw_import_step.update(
+                {
+                    "success": True,
+                    "skipped": True,
+                    "existing_rows": existing_rows,
+                    "detail": "MySQL 已有游客原始数据，无需重复全量导入。",
+                }
+            )
+        else:
+            raw_result = import_visitor_records_from_csv(clear_existing=False)
+            partition_result = import_local_date_partitions()
+            raw_import_step.update(
+                {
+                    "success": True,
+                    "imported_rows": raw_result.imported_rows,
+                    "skipped_rows": raw_result.skipped_rows,
+                    "partition_files": partition_result["imported_files"],
+                    "partition_rows": partition_result["imported_rows"],
+                }
+            )
     except Exception as exc:
         raw_import_step["error"] = str(exc)
         steps.append(raw_import_step)

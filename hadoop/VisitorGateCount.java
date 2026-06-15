@@ -85,6 +85,8 @@ public class VisitorGateCount {
         }
 
         Configuration conf = new Configuration();
+        conf.setBoolean("mapreduce.input.fileinputformat.input.dir.recursive", true);
+        conf.setBoolean("mapred.input.dir.recursive", true);
 
         Job job = Job.getInstance(conf, "visitor gate count");
 
