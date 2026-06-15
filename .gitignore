@@ -13,6 +13,3 @@ __pycache__/
 db.sqlite3
 *.log
 .env
-
-datasets/*.csv
-datasets/*.txt
