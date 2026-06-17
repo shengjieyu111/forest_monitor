@@ -85,13 +85,17 @@ public class VisitorGateCount {
         }
 
         Configuration conf = new Configuration();
+        conf.setBoolean("mapreduce.input.fileinputformat.input.dir.recursive", true);
+        conf.setBoolean("mapred.input.dir.recursive", true);
 
         Job job = Job.getInstance(conf, "visitor gate count");
 
         job.setJarByClass(VisitorGateCount.class);
 
         job.setMapperClass(GateMapper.class);
+        job.setCombinerClass(GateReducer.class);
         job.setReducerClass(GateReducer.class);
+        job.setNumReduceTasks(1);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);

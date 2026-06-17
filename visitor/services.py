@@ -2,7 +2,7 @@ import csv
 import os
 import shlex
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 from django.conf import settings
@@ -27,15 +27,17 @@ CSV_FIELDS = [
     "ticket_type",
 ]
 
-SSH_HOST = os.getenv("HADOOP_SSH_HOST", "192.168.10.11")
+SSH_HOST = os.getenv("HADOOP_SSH_HOST", "192.168.56.100")
 SSH_PORT = int(os.getenv("HADOOP_SSH_PORT", "22"))
 SSH_USERNAME = os.getenv("HADOOP_SSH_USER", "root")
 SSH_PASSWORD = os.getenv("HADOOP_SSH_PASSWORD")
 SSH_KEY_FILENAME = os.getenv("HADOOP_SSH_KEY_FILENAME")
 REMOTE_HADOOP_DIR = "/root/forest_monitor/hadoop"
 REMOTE_DATASET_DIR = "/root/forest_monitor/datasets"
-HDFS_INPUT_PATH = "/forest/visitor/input/visitor_records.csv"
+# HDFS 数据按 date=YYYY-MM-DD 分区存储，MapReduce 从根目录递归读取。
+HDFS_INPUT_PATH = "/forest/visitor/input"
 LOCAL_DATASET_DIR = Path(settings.BASE_DIR) / "datasets"
+LOCAL_HADOOP_DIR = Path(settings.BASE_DIR) / "hadoop"
 
 
 @dataclass
@@ -148,6 +150,65 @@ def import_visitor_records_from_csv(
         imported_rows=imported_rows,
         skipped_rows=skipped_rows,
     )
+
+
+def import_visitor_records_for_date(csv_path, date_str):
+    """用指定日期 CSV 覆盖 MySQL 中同一天的游客原始记录。"""
+    target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    file_path = Path(csv_path)
+    if not file_path.exists():
+        raise FileNotFoundError(f"CSV 文件不存在：{file_path}")
+
+    records = []
+    total_rows = 0
+    with file_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        validate_csv_header(reader.fieldnames)
+        for row in reader:
+            total_rows += 1
+            record = build_visitor_record(row)
+            if record.visit_time.date() != target_date:
+                raise ValueError(
+                    f"CSV 第 {total_rows + 1} 行日期不是 {date_str}："
+                    f"{record.visit_time:%Y-%m-%d}"
+                )
+            records.append(record)
+
+    if not records:
+        raise ValueError("CSV 中没有可导入的游客记录。")
+
+    day_start = timezone.make_aware(datetime.combine(target_date, time.min))
+    day_end = day_start + timedelta(days=1)
+    with transaction.atomic():
+        VisitorRecord.objects.filter(
+            visit_time__gte=day_start,
+            visit_time__lt=day_end,
+        ).delete()
+        VisitorRecord.objects.bulk_create(records, batch_size=5000)
+
+    return ImportResult(
+        file_path=str(file_path),
+        total_rows=total_rows,
+        imported_rows=len(records),
+        skipped_rows=0,
+    )
+
+
+def import_local_date_partitions():
+    """把 HDFS 页面保存的本地日期增量 CSV 同步到 MySQL。"""
+    upload_dir = LOCAL_DATASET_DIR / "upload_date"
+    imported_rows = 0
+    imported_files = 0
+    if not upload_dir.exists():
+        return {"imported_files": 0, "imported_rows": 0}
+
+    for file_path in sorted(upload_dir.glob("visitor_records_????-??-??.csv")):
+        date_str = file_path.stem.removeprefix("visitor_records_")
+        result = import_visitor_records_for_date(file_path, date_str)
+        imported_files += 1
+        imported_rows += result.imported_rows
+
+    return {"imported_files": imported_files, "imported_rows": imported_rows}
 
 
 def read_mapreduce_rows(file_path):
@@ -268,12 +329,14 @@ def _create_ssh_client():
         "hostname": SSH_HOST,
         "port": SSH_PORT,
         "username": SSH_USERNAME,
-        "timeout": 15,
-        "banner_timeout": 15,
-        "auth_timeout": 15,
+        "timeout": 20,
+        "banner_timeout": 20,
+        "auth_timeout": 30,
     }
     if SSH_PASSWORD:
         connect_options["password"] = SSH_PASSWORD
+        connect_options["allow_agent"] = False
+        connect_options["look_for_keys"] = False
     if SSH_KEY_FILENAME:
         connect_options["key_filename"] = SSH_KEY_FILENAME
     client.connect(**connect_options)
@@ -329,30 +392,18 @@ def _upload_local_file(local_path, remote_path):
 
 
 def upload_visitor_csv_to_hdfs_remote():
-    """上传本地游客 CSV 到 hd0，并替换 HDFS 中的输入文件。"""
-    local_csv_path = LOCAL_DATASET_DIR / "visitor_records.csv"
-    remote_csv_path = f"{REMOTE_DATASET_DIR}/visitor_records.csv"
-
-    run_ssh_command(
-        f"mkdir -p {shlex.quote(REMOTE_DATASET_DIR)}"
-    )
-    upload_detail = _upload_local_file(local_csv_path, remote_csv_path)
-
-    hdfs_input_dir = str(Path(HDFS_INPUT_PATH).parent).replace("\\", "/")
+    """分区模式下检查 MapReduce 输入根目录，不再上传单个总 CSV。"""
     command = " && ".join(
         [
-            f"hdfs dfs -mkdir -p {shlex.quote(hdfs_input_dir)}",
-            f"hdfs dfs -rm -f {shlex.quote(HDFS_INPUT_PATH)}",
-            f"hdfs dfs -put {shlex.quote(remote_csv_path)} {shlex.quote(HDFS_INPUT_PATH)}",
-            f"hdfs dfs -test -e {shlex.quote(HDFS_INPUT_PATH)}",
-            f"hdfs dfs -du -h {shlex.quote(HDFS_INPUT_PATH)}",
+            f"hdfs dfs -test -d {shlex.quote(HDFS_INPUT_PATH)}",
+            f"hdfs dfs -ls -R -h {shlex.quote(HDFS_INPUT_PATH)}",
         ]
     )
     command_result = run_ssh_command(f"bash -lc {shlex.quote(command)}")
     return {
-        **upload_detail,
         "hdfs_path": HDFS_INPUT_PATH,
         "hdfs_status": command_result.stdout,
+        "mode": "date_partition",
     }
 
 
@@ -363,11 +414,22 @@ def _run_mapreduce_remote(
     result_file_name,
 ):
     jar_path = f"{REMOTE_HADOOP_DIR}/{jar_name}"
+    local_jar_path = LOCAL_HADOOP_DIR / jar_name
     remote_result_path = f"{REMOTE_DATASET_DIR}/{result_file_name}"
     local_result_path = LOCAL_DATASET_DIR / result_file_name
+
+    run_ssh_command(
+        " && ".join(
+            [
+                f"mkdir -p {shlex.quote(REMOTE_HADOOP_DIR)}",
+                f"mkdir -p {shlex.quote(REMOTE_DATASET_DIR)}",
+            ]
+        )
+    )
+    _upload_local_file(local_jar_path, jar_path)
+
     command = " && ".join(
         [
-            f"mkdir -p {shlex.quote(REMOTE_DATASET_DIR)}",
             f"hdfs dfs -rm -r -f {shlex.quote(hdfs_output_path)}",
             f"hadoop jar {shlex.quote(jar_path)} {shlex.quote(main_class)} {shlex.quote(HDFS_INPUT_PATH)} {shlex.quote(hdfs_output_path)}",
             f"rm -f {shlex.quote(remote_result_path)}",

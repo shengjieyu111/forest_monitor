@@ -5,7 +5,9 @@ from pathlib import Path
 
 
 START_DATE = datetime(2024, 1, 1)
-END_DATE = datetime(2026, 6, 15)
+# 历史总数据只生成到运行当天的前一天，今天的数据由
+# generate_today_visitor_data.py 单独生成并通过 HDFS 管理页面追加。
+END_DATE = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
 START_MINUTE = 8 * 60
 END_MINUTE = 18 * 60 + 55
 INTERVAL_MINUTES = 5
