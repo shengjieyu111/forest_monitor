@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HDFS 数据管理</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --forest-950: #142b22;
+      --forest-900: #19382c;
+      --forest-800: #24503f;
+      --forest-700: #2d6a52;
+      --forest-100: #e9f3ee;
+      --forest-50: #f3f8f5;
+      --cream: #fbfaf5;
+      --canvas: #f3f5f1;
+      --card: #fffefb;
+      --ink: #1d2c25;
+      --muted: #6e7b74;
+      --line: #dfe6e1;
+      --danger: #c94b43;
+      --shadow: 0 10px 30px rgba(28, 58, 46, .07);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--canvas); font: 16px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; }
+    button { font: inherit; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 208px minmax(0, 1fr); }
+    .sidebar { position: sticky; top: 0; height: 100vh; padding: 22px 14px; border-right: 1px solid #dce4de; background: var(--cream); }
+    .brand { display: flex; align-items: center; gap: 13px; padding: 2px 8px 26px; }
+    .brand-mark { width: 48px; height: 48px; display: grid; place-items: center; color: #fff; border-radius: 10px; background: var(--forest-800); box-shadow: 0 7px 18px rgba(36,80,63,.2); }
+    .brand-mark svg { width: 25px; height: 25px; }
+    .brand strong { display: block; color: var(--forest-950); font-size: 18px; font-weight: 800; white-space: nowrap; }
+    .brand span { display: block; margin-top: 4px; color: #87918b; font-size: 11px; }
+    .nav-label { padding: 18px 11px 9px; color: #9aa39e; font-size: 14px; font-weight: 700; }
+    .nav { display: grid; gap: 4px; }
+    .nav-item { min-height: 52px; display: flex; align-items: center; gap: 11px; padding: 0 12px; color: #68756e; border-radius: 8px; text-decoration: none; font-size: 17px; }
+    .nav-item:hover { color: var(--forest-800); background: #f0f4f1; }
+    .nav-item.active { color: var(--forest-900); background: #e3eee8; font-weight: 700; }
+    .nav-item svg { width: 21px; height: 21px; }
+    .content { width: 100%; max-width: none; margin: 0; padding: 26px 24px 44px; }
+    .eyebrow { margin-bottom: 8px; color: var(--forest-700); font-size: 14px; font-weight: 800; }
+    h1 { margin: 0; color: var(--forest-950); font-size: 38px; line-height: 1.15; }
+    .subtitle { max-width: 860px; margin: 11px 0 0; color: var(--muted); font-size: 18px; line-height: 1.7; }
+    .path-card { display: flex; align-items: center; gap: 10px; margin-top: 22px; padding: 14px 16px; border: 1px solid #cfe0d7; border-radius: 12px; color: var(--forest-800); background: var(--forest-50); }
+    .path-card svg { width: 18px; height: 18px; }
+    .path-card { font-size: 17px; }
+    .path-card code { font-size: 16px; }
+    .actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+    .action-form button { width: 100%; min-height: 112px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 10px; padding: 20px; color: var(--forest-900); border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
+    .action-form button:hover { transform: translateY(-2px); border-color: #b7d0c3; }
+    .action-form button svg { width: 25px; height: 25px; color: var(--forest-600); }
+    .action-form button strong { font-size: 18px; }
+    .action-form button span { color: var(--muted); font-size: 14px; }
+    .action-form .danger { color: #8f302b; }
+    .action-form .danger svg { color: var(--danger); }
+    .message { margin-top: 16px; padding: 14px 16px; border-radius: 12px; white-space: pre-wrap; line-height: 1.65; }
+    .message.success { color: #246b50; border: 1px solid #bcdcca; background: #ebf7f0; }
+    .message.error { color: #9c3832; border: 1px solid #efc3bf; background: #fff0ee; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+    .panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); }
+    .panel-head { min-height: 62px; display: flex; align-items: center; gap: 10px; padding: 0 18px; border-bottom: 1px solid #edf1ee; }
+    .panel-head svg { width: 18px; height: 18px; color: var(--forest-600); }
+    h2 { margin: 0; font-size: 21px; }
+    pre { height: 430px; margin: 0; overflow: auto; padding: 20px; color: #dce9e2; background: #183127; font: 15px/1.75 Consolas, "Courier New", monospace; white-space: pre-wrap; word-break: break-all; }
+    .empty { height: 430px; display: grid; place-items: center; color: #87928c; font-size: 17px; }
+    @media (max-width: 1050px) { .app { grid-template-columns: 74px minmax(0,1fr); } .brand { justify-content: center; padding-inline: 0; } .brand-copy, .nav-label, .nav-item span { display: none; } .nav-item { justify-content: center; padding: 0; } .actions { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 720px) { .app { display: block; } .sidebar { display: none; } .content { padding: 20px 14px 30px; } h1 { font-size: 32px; } .actions, .grid { grid-template-columns: 1fr; } pre, .empty { height: 320px; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><i data-lucide="trees"></i></div>
+        <div class="brand-copy"><strong>鹫峰林场监测</strong><span>JIUFENG FOREST</span></div>
+      </div>
+      <div class="nav-label">智能监测</div>
+      <nav class="nav">
+        <a class="nav-item" href="#"><i data-lucide="layout-dashboard"></i><span>综合概览</span></a>
+        <a class="nav-item" href="/visitor/"><i data-lucide="users-round"></i><span>游客流量</span></a>
+        <a class="nav-item active" href="{% url 'hdfs_app:index' %}"><i data-lucide="database"></i><span>HDFS 管理</span></a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="eyebrow">BEIJING FORESTRY UNIVERSITY</div>
+      <h1>HDFS 数据管理</h1>
+      <p class="subtitle">对游客 CSV 数据进行 HDFS 上传、查看、预览、删除和覆盖更新。</p>
+
+      <div class="path-card"><i data-lucide="folder-open"></i><strong>当前 HDFS 目录</strong><code>{{ hdfs_directory }}</code></div>
+
+      <section class="actions">
+        <form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="list"><button type="submit"><i data-lucide="list"></i><strong>查看文件列表</strong><span>读取当前目录内容</span></button></form>
+        <form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="upload"><button type="submit"><i data-lucide="cloud-upload"></i><strong>上传/覆盖 CSV</strong><span>新增或更新 visitor_records.csv</span></button></form>
+        <form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="preview"><button type="submit"><i data-lucide="file-search"></i><strong>预览前 20 行</strong><span>查看 HDFS 文件内容</span></button></form>
+        <form class="action-form" method="post" onsubmit="return confirm('确认删除 HDFS 中的 visitor_records.csv 吗？')">{% csrf_token %}<input type="hidden" name="action" value="delete"><button class="danger" type="submit"><i data-lucide="trash-2"></i><strong>删除 HDFS 文件</strong><span>{{ hdfs_file_path }}</span></button></form>
+      </section>
+
+      {% if message %}<div class="message {{ message_type }}">{{ message }}</div>{% endif %}
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head"><i data-lucide="files"></i><h2>HDFS 文件列表</h2></div>
+          {% if file_list %}<pre>{{ file_list }}</pre>{% else %}<div class="empty">当前目录暂无文件或尚未连接 HDFS</div>{% endif %}
+        </article>
+        <article class="panel">
+          <div class="panel-head"><i data-lucide="scan-text"></i><h2>文件内容预览</h2></div>
+          {% if preview_text %}<pre>{{ preview_text }}</pre>{% else %}<div class="empty">点击“预览前 20 行”查看游客 CSV</div>{% endif %}
+        </article>
+      </section>
+    </main>
+  </div>
+  <script>if (window.lucide) window.lucide.createIcons();</script>
+</body>
+</html>
