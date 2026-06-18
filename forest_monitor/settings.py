@@ -83,9 +83,9 @@ WSGI_APPLICATION = 'forest_monitor.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'monitor_db',
+        'NAME': 'forest_monitor',
         'USER': 'root',
-        'PASSWORD': '123456',
+        'PASSWORD': '369963',
         'HOST': '127.0.0.1',
         'PORT': '3306',
         'OPTIONS': {

@@ -90,7 +90,7 @@
       </div>
       <div class="nav-label">智能监测</div>
       <nav class="nav">
-        <a class="nav-item" href="#"><i data-lucide="layout-dashboard"></i><span>综合概览</span></a>
+        <a class="nav-item" href="{% url 'visual_app:dashboard' %}"><i data-lucide="layout-dashboard"></i><span>综合概览</span></a>
         <a class="nav-item" href="/visitor/"><i data-lucide="users-round"></i><span>游客流量</span></a>
         <a class="nav-item active" href="{% url 'hdfs_app:index' %}"><i data-lucide="database"></i><span>HDFS 管理</span></a>
       </nav>
@@ -148,7 +148,7 @@
             <div class="panel-title"><i data-lucide="files"></i><h2>HDFS 日期分区列表</h2></div>
             <form class="refresh-form operation-form" method="post">{% csrf_token %}<button class="refresh-button" type="submit" name="action" value="list"><i data-lucide="refresh-cw"></i><span>刷新</span></button></form>
           </div>
-          {% if file_list %}<pre>{{ file_list }}</pre>{% else %}<div class="empty">当前根目录暂无日期分区，或尚未连接 HDFS。</div>{% endif %}
+          {% if file_list %}<pre>{{ file_list }}</pre>{% else %}<div class="empty">点击“刷新”读取 HDFS 日期分区列表。</div>{% endif %}
         </article>
         <article class="panel">
           <div class="panel-head"><div class="panel-title"><i data-lucide="file-search"></i><h2>文件内容预览</h2></div></div>

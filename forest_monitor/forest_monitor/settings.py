@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-ca9v9ytz112zk*1fpaf8mt0fyrm_fv!!_c-eb^%%x3m-&nyvqt
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
 
 
 # Application definition
@@ -41,9 +41,11 @@ INSTALLED_APPS = [
 
     'users',
     'sensor',
+    'devices',
     'hdfs_app',
     'mapreduce_app',
     'ai_app',
+    'visitor',
     'visual_app'
 ]
 
@@ -62,7 +64,7 @@ ROOT_URLCONF = 'forest_monitor.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [BASE_DIR / 'templates', BASE_DIR.parent / 'hdfs_app' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -141,3 +143,18 @@ HDFS_OUTPUT_PATH = '/waether/output'
 HDFS_PART_FILE = 'part-r-00000'
 HDFS_TIMEOUT = 20
 MAPREDUCE_TIMEOUT = 60 * 60
+
+# Remote Hadoop runtime used by visitor/device MapReduce modules.
+HADOOP_SSH_HOST = os.getenv('HADOOP_SSH_HOST', HDFS_WEB_HOST)
+HADOOP_SSH_PORT = int(os.getenv('HADOOP_SSH_PORT', '22'))
+HADOOP_SSH_USER = os.getenv('HADOOP_SSH_USER', HDFS_USER)
+HADOOP_SSH_PASSWORD = os.getenv('HADOOP_SSH_PASSWORD', '')
+HADOOP_SSH_KEY_FILENAME = os.getenv('HADOOP_SSH_KEY_FILENAME', '')
+HADOOP_REMOTE_DIR = os.getenv('HADOOP_REMOTE_DIR', '/root/forest_monitor/hadoop')
+HADOOP_REMOTE_DATASET_DIR = os.getenv(
+    'HADOOP_REMOTE_DATASET_DIR',
+    '/root/forest_monitor/datasets',
+)
+VISITOR_HDFS_INPUT_PATH = os.getenv('VISITOR_HDFS_INPUT_PATH', '/waether/visitor/input')
+VISITOR_HDFS_OUTPUT_ROOT = os.getenv('VISITOR_HDFS_OUTPUT_ROOT', '/waether/visitor/output')
+DEVICE_HDFS_BASE = os.getenv('DEVICE_HDFS_BASE', '/waether/devices')

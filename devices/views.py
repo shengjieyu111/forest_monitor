@@ -12,6 +12,7 @@ from .models import (
     FaultTypeDistribution,
     Device7DayAnalysis,
 )
+from .devices_geo import generate_device_location_point
 from .services import run_device_full_pipeline
 
 def devices_dashboard(request):
@@ -55,19 +56,24 @@ class DeviceMapView(View):
             for d in DeviceHealthAnalysis.objects.all()
         }
 
-        return JsonResponse([
-            {
+        data = []
+        for d in Device.objects.all():
+            longitude, latitude = generate_device_location_point(d.location, d.device_id)
+            if longitude is None or latitude is None:
+                longitude, latitude = d.longitude, d.latitude
+
+            data.append({
                 "device_id": d.device_id,
                 "device_name": d.device_name,
                 "device_type": d.device_type.upper(),
                 "status": d.status,
-                "longitude": d.longitude,
-                "latitude": d.latitude,
+                "longitude": longitude,
+                "latitude": latitude,
                 "location": d.location,
                 "health_score": round(float(health_map.get(d.device_id, 0)), 2)
-            }
-            for d in Device.objects.all()
-        ], safe=False)
+            })
+
+        return JsonResponse(data, safe=False)
 
 
 # =========================

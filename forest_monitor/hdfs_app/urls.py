@@ -6,6 +6,7 @@ from . import views
 app_name = 'hdfs_app'
 
 urlpatterns = [
+    path('', views.hdfs_index, name='index'),
     path('files/', views.files, name='files'),
     path('upload/', views.upload, name='upload'),
     path('delete/', views.delete, name='delete'),

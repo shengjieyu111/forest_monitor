@@ -4,6 +4,7 @@ import random
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from devices.devices_geo import generate_location_point
 from devices.models import Device, DeviceWorkLog, DeviceFault
 
 
@@ -44,16 +45,18 @@ class Command(BaseCommand):
         devices = []
 
         for i in range(device_count):
+            location = random.choice(locations)
+            longitude, latitude = generate_location_point(location, seed=f"seed:{i}:{location}")
             device = Device.objects.create(
                 device_id=f"D{i:04d}",
                 device_name=f"Device_{i}",
                 device_type=random.choice(device_types),
                 sub_type="v1",
 
-                longitude=120.5 + random.random() * 0.1,
-                latitude=23.5 + random.random() * 0.1,
+                longitude=longitude,
+                latitude=latitude,
 
-                location=random.choice(locations),
+                location=location,
                 install_date=today - timedelta(days=random.randint(30, 365)),
                 status=random.choice(statuses),
             )

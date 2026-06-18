@@ -151,26 +151,28 @@ let map;
 let markers = [];
 let allDevices = [];
 let faultChart = null;
+const JIUFENG_CENTER = [116.031, 39.993];
+const JIUFENG_BOUNDARY = [
+    [116.0148, 39.9822],
+    [116.0208, 39.9778],
+    [116.0338, 39.9800],
+    [116.0458, 39.9872],
+    [116.0474, 39.9988],
+    [116.0398, 40.0088],
+    [116.0252, 40.0082],
+    [116.0130, 39.9970]
+];
 
 /* ================= 地图初始化（修复缩放） ================= */
 function initMap() {
     map = new AMap.Map('map', {
-        center: [116.035, 39.995],
-        zoom: 14,
+        center: JIUFENG_CENTER,
+        zoom: 15,
         viewMode: '3D'
     });
 
     const parkPolygon = new AMap.Polygon({
-        path: [
-            [116.00, 39.97],
-            [116.02, 39.96],
-            [116.05, 39.97],
-            [116.07, 40.00],
-            [116.06, 40.03],
-            [116.03, 40.04],
-            [116.00, 40.02],
-            [115.99, 39.99]
-        ],
+        path: JIUFENG_BOUNDARY,
         strokeColor: '#047857',
         strokeWeight: 3,
         fillColor: '#047857',
@@ -180,8 +182,8 @@ function initMap() {
     map.add(parkPolygon);
 
     const parkLabel = new AMap.Text({
-        text: '鹫峰国家森林公园',
-        position: [116.035, 39.995],
+        text: '鹫峰森林公园',
+        position: JIUFENG_CENTER,
         offset: [0, 0],
         style: {
             fontSize: 14,

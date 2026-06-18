@@ -143,9 +143,14 @@ public class DeviceHealthAnalysis {
     // ================= Driver =================
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", "hdfs://node11:8020");
+        conf.set("fs.defaultFS", "hdfs://hd0:9000");
         conf.set("mapreduce.framework.name", "yarn");
-        conf.set("yarn.resourcemanager.address", "node12:8032");
+        conf.set("yarn.resourcemanager.hostname", "hd1");
+        conf.set("yarn.resourcemanager.address", "hd1:8032");
+        conf.set("yarn.resourcemanager.scheduler.address", "hd1:8030");
+        conf.set("yarn.resourcemanager.resource-tracker.address", "hd1:8031");
+        conf.set("yarn.resourcemanager.admin.address", "hd1:8033");
+        conf.set("mapreduce.app-submission.cross-platform", "true");
 
         Job job = Job.getInstance(conf, "MR2 DeviceHealthAnalysis");
         job.setJarByClass(DeviceHealthAnalysis.class);

@@ -385,6 +385,11 @@
         const data = await getApi("{% url 'visitor:daily-stat-api' %}");
         const total = data.values.reduce((sum, value) => sum + value, 0);
         const average = data.labels.length ? Math.round(total / data.labels.length) : 0;
+        const hasDailyRange = data.labels.length > 1;
+        const dailyDataZoom = data.labels.length > 7 ? [
+          { type: "inside", start: 84, end: 100 },
+          { type: "slider", start: 84, end: 100, height: 20, bottom: 16, borderColor: "#dbe5df", fillerColor: "rgba(45,106,82,.16)", handleStyle: { color: "#2d6a52" }, textStyle: { color: "#596a61", fontSize: 11 } }
+        ] : [];
         document.getElementById("total-count").textContent = `${numberFormat.format(total)} 人`;
         document.getElementById("day-count").textContent = `${data.labels.length} 天`;
         document.getElementById("daily-average").textContent = `${numberFormat.format(average)} 人`;
@@ -405,12 +410,9 @@
             axisLabel: { color: "#596a61", fontSize: 13, fontWeight: 600, formatter: value => numberFormat.format(value) },
             splitLine: { lineStyle: { color: "#e8eeea", type: "dashed" } }
           },
-          dataZoom: [
-            { type: "inside", start: 84, end: 100 },
-            { type: "slider", start: 84, end: 100, height: 20, bottom: 16, borderColor: "#dbe5df", fillerColor: "rgba(45,106,82,.16)", handleStyle: { color: "#2d6a52" }, textStyle: { color: "#596a61", fontSize: 11 } }
-          ],
+          dataZoom: dailyDataZoom,
           series: [{
-            name: "每日客流", type: "line", data: data.values, showSymbol: false, smooth: .25,
+            name: "每日客流", type: "line", data: data.values, showSymbol: !hasDailyRange, symbolSize: hasDailyRange ? 5 : 10, smooth: .25,
             lineStyle: { width: 2.5, color: "#2d6a52" },
             areaStyle: { color: "rgba(57,132,102,.13)" }
           }]
