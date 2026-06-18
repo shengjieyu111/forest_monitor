@@ -19,3 +19,5 @@ db.sqlite3
 
 # Temporary uploaded csv files
 datasets/upload_date/
+forest_monitor/datasets/upload_date/
+forest_monitor/datasets/visitor_partitions_*/

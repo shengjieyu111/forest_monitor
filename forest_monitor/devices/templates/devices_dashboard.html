@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>设备监控系统</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=6c9e953d980b97798ec5254409fa770d"></script>
+
+    <style>
+        body { margin:0; font-family:Microsoft YaHei; background:#f0f2f5; overflow:hidden; }
+
+        .header {
+            background: linear-gradient(90deg,#047857,#065f46);
+            color:white; padding:12px 20px; font-weight:bold;
+        }
+
+        .stats {
+            display:flex; gap:10px; padding:10px; background:#fff;
+        }
+
+        .stat-card {
+            flex:1; text-align:center; padding:10px;
+            background:#f8f9fa; border-radius:10px;
+        }
+
+        .value { font-size:20px; font-weight:bold; color:#047857; }
+
+        .controls {
+            display:flex; gap:10px; padding:10px; background:#fff;
+        }
+
+        .controls input,.controls select,.controls button {
+            padding:6px 10px; border:1px solid #ddd; border-radius:6px;
+        }
+
+        .controls button {
+            background:#047857; color:white; cursor:pointer;
+        }
+
+        .main { display:flex; height:calc(100vh - 180px); }
+
+        .map { flex:1; margin:10px; border-radius:10px; overflow:hidden; }
+
+        #map { width:100%; height:100%; }
+
+        .sidebar { width:360px; background:#fff; margin:10px; border-radius:10px; overflow-y:auto; }
+
+        .sidebar-header { padding:12px; font-weight:bold; background:#f8f9fa; border-bottom:1px solid #eee; }
+
+        .chart-container { height:240px; padding:10px; }
+
+        .rank { padding:10px; font-size:12px; max-height:180px; overflow-y:auto; }
+
+        .rank-item { display:flex; justify-content:space-between; padding:6px; border-bottom:1px solid #f0f0f0; }
+
+        .legend {
+            position:absolute; bottom:20px; left:20px;
+            background:white; padding:10px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .seven-day-table {
+            padding:10px; font-size:12px;
+        }
+
+        .seven-day-table table {
+            width:100%; border-collapse:collapse;
+        }
+
+        .seven-day-table th, .seven-day-table td {
+            padding:6px 4px; text-align:center; border:1px solid #eee;
+        }
+
+        .seven-day-table th {
+            background:#f8f9fa; font-weight:bold; color:#666;
+        }
+
+        .highlight-value {
+            color:#047857; font-weight:bold;
+        }
+
+        .warning-value {
+            color:#faad14; font-weight:bold;
+        }
+
+        .danger-value {
+            color:#ff4d4f; font-weight:bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">设备监控系统</div>
+
+<!-- ================= 顶部卡片 ================= -->
+<div class="stats">
+    <div class="stat-card"><div>设备总数</div><div class="value" id="total">0</div></div>
+    <div class="stat-card"><div>在线设备</div><div class="value" id="online">0</div></div>
+    <div class="stat-card"><div>在线率</div><div class="value" id="rate">0%</div></div>
+    <div class="stat-card"><div>故障设备</div><div class="value" id="fault">0</div></div>
+</div>
+
+<!-- ================= 控制栏 ================= -->
+<div class="controls">
+    <input id="keyword" placeholder="设备ID">
+    <select id="status">
+        <option value="">全部</option>
+        <option value="ONLINE">在线</option>
+        <option value="FAULT">故障</option>
+        <option value="MAINTENANCE">维修中</option>
+    </select>
+
+    <button onclick="filterDevices()">搜索</button>
+    <button onclick="runAnalysis()" id="mrBtn">执行MR分析</button>
+</div>
+
+<!-- ================= 主体 ================= -->
+<div class="main">
+
+    <div class="map">
+        <div id="map"></div>
+
+        <div class="legend">
+            <div><span style="display:inline-block;width:20px;height:3px;background:#52c41a;border-radius:2px;"></span> 在线</div>
+            <div><span style="display:inline-block;width:20px;height:3px;background:#ff4d4f;border-radius:2px;"></span> 故障</div>
+            <div><span style="display:inline-block;width:20px;height:3px;background:#8c8c8c;border-radius:2px;"></span> 维修中</div>
+            <div><span style="display:inline-block;width:20px;height:3px;background:#faad14;border-radius:2px;"></span> 健康度&lt;40</div>
+            <div><span style="display:inline-block;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:12px solid #333;"></span> 摄像头(三角)</div>
+            <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#333;"></span> 传感器(圆形)</div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+
+        <div class="sidebar-header">健康度最低Top10</div>
+        <div class="rank" id="top10"></div>
+
+        <div class="sidebar-header">故障统计</div>
+        <div class="chart-container"><canvas id="faultChart"></canvas></div>
+
+        <div class="sidebar-header">设备工作统计</div>
+        <div class="seven-day-table" id="sevenDayTable"></div>
+
+    </div>
+
+</div>
+
+<script>
+let map;
+let markers = [];
+let allDevices = [];
+let faultChart = null;
+const JIUFENG_CENTER = [116.031, 39.993];
+const JIUFENG_BOUNDARY = [
+    [116.0148, 39.9822],
+    [116.0208, 39.9778],
+    [116.0338, 39.9800],
+    [116.0458, 39.9872],
+    [116.0474, 39.9988],
+    [116.0398, 40.0088],
+    [116.0252, 40.0082],
+    [116.0130, 39.9970]
+];
+
+/* ================= 地图初始化（修复缩放） ================= */
+function initMap() {
+    map = new AMap.Map('map', {
+        center: JIUFENG_CENTER,
+        zoom: 15,
+        viewMode: '3D'
+    });
+
+    const parkPolygon = new AMap.Polygon({
+        path: JIUFENG_BOUNDARY,
+        strokeColor: '#047857',
+        strokeWeight: 3,
+        fillColor: '#047857',
+        fillOpacity: 0.15
+    });
+
+    map.add(parkPolygon);
+
+    const parkLabel = new AMap.Text({
+        text: '鹫峰森林公园',
+        position: JIUFENG_CENTER,
+        offset: [0, 0],
+        style: {
+            fontSize: 14,
+            fontWeight: 'bold',
+            fillColor: '#065f46',
+            background: 'rgba(255,255,255,0.8)',
+            padding: [4, 8],
+            borderRadius: 4
+        }
+    });
+
+    map.add(parkLabel);
+}
+
+/* ================= 卡片 ================= */
+async function loadOverview() {
+    const res = await fetch('/devices/api/overview/');
+    const d = await res.json();
+
+    document.getElementById('total').innerText = d.total;
+    document.getElementById('online').innerText = d.online;
+    document.getElementById('fault').innerText = d.fault || 0;
+
+    const rate = d.total ? (d.online / d.total * 100).toFixed(1) : 0;
+    document.getElementById('rate').innerText = rate + '%';
+}
+
+/* ================= 地图数据 ================= */
+async function loadMap() {
+    const res = await fetch('/devices/api/device/map/');
+    allDevices = await res.json();
+    renderMarkers(allDevices);
+    updateFaultChart();
+    updateTop10();
+    updateSevenDay();
+}
+
+/* ================= marker规则 ================= */
+function getColor(d) {
+    const healthScore = parseFloat(d.health_score) || 0;
+    if (d.status === 'FAULT') return '#ff4d4f';
+    if (d.status === 'MAINTENANCE') return '#8c8c8c';
+    if (d.status === 'OFFLINE') return '#8c8c8c';
+    if (healthScore < 40) return '#faad14';
+    return '#52c41a';
+}
+
+function getShape(type) {
+    if (type === 'CAMERA') {
+        return 'M10 0 L20 20 L0 20 Z';
+    }
+    return 'M10 10 m-8,0 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0';
+}
+
+/* ================= 渲染地图 ================= */
+function renderMarkers(list) {
+
+    markers.forEach(m => m.setMap(null));
+    markers = [];
+
+    let bounds = new AMap.Bounds();
+
+    list.forEach(d => {
+
+        const color = getColor(d);
+        const path = getShape(d.device_type);
+
+        const marker = new AMap.Marker({
+            position: [d.longitude, d.latitude],
+            content: `
+                <svg width="22" height="22" viewBox="0 0 20 20">
+                    <path d="${path}" fill="${color}" stroke="#fff" stroke-width="2"/>
+                </svg>
+            `
+        });
+
+        marker.on('click', () => {
+            showDeviceDetail(d);
+        });
+
+        marker.setMap(map);
+        markers.push(marker);
+        bounds.extend(marker.getPosition());
+    });
+
+    if (list.length) map.setBounds(bounds);
+}
+
+function showDeviceDetail(d) {
+    const statusMap = {
+        'ONLINE': '在线',
+        'FAULT': '故障',
+        'MAINTENANCE': '维修中',
+        'OFFLINE': '离线'
+    };
+
+    const typeMap = {
+        'CAMERA': '摄像头',
+        'SENSOR': '传感器'
+    };
+
+    const infoWindow = new AMap.InfoWindow({
+        content: `
+            <div style="padding:10px;min-width:200px;">
+                <h4 style="margin:0 0 10px 0;color:#047857;">${d.device_id}</h4>
+                <div style="margin-bottom:6px;">
+                    <span style="color:#666;">类型:</span>
+                    <span>${typeMap[d.device_type] || d.device_type}</span>
+                </div>
+                <div style="margin-bottom:6px;">
+                    <span style="color:#666;">状态:</span>
+                    <span>${statusMap[d.status] || d.status}</span>
+                </div>
+                <div style="margin-bottom:6px;">
+                    <span style="color:#666;">健康度:</span>
+                    <span>${d.health_score}</span>
+                </div>
+                <div style="margin-bottom:6px;">
+                    <span style="color:#666;">位置:</span>
+                    <span>${d.location}</span>
+                </div>
+                <div style="margin-bottom:6px;">
+                    <span style="color:#666;">坐标:</span>
+                    <span>${d.longitude.toFixed(4)}, ${d.latitude.toFixed(4)}</span>
+                </div>
+            </div>
+        `,
+        offset: new AMap.Pixel(0, -20)
+    });
+
+    infoWindow.open(map, [d.longitude, d.latitude]);
+}
+
+/* ================= 搜索 ================= */
+function filterDevices() {
+    const k = document.getElementById('keyword').value.toLowerCase();
+    const s = document.getElementById('status').value;
+
+    const r = allDevices.filter(d =>
+        d.device_id.toLowerCase().includes(k) &&
+        (!s || d.status === s)
+    );
+
+    renderMarkers(r);
+}
+
+/* ================= 故障图 ================= */
+async function updateFaultChart() {
+    const res = await fetch('/devices/api/faults/');
+    const data = await res.json();
+
+    const faultTypeMap = {
+        'LENS_DIRTY': '镜头脏污',
+        'SENSOR_ERROR': '传感器错误',
+        'NETWORK_OFFLINE': '网络离线',
+        'POWER_FAILURE': '电源故障',
+        'NETWORK_ERROR': '网络错误',
+        'OVERHEAT': '设备过热',
+        'STORAGE_FULL': '存储空间满',
+        'CAMERA_BLACK': '摄像头黑屏',
+        'SIGNAL_LOST': '信号丢失',
+        'UNKNOWN': '未知故障'
+    };
+
+    const ctx = document.getElementById('faultChart');
+
+    if (faultChart) faultChart.destroy();
+
+    faultChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => faultTypeMap[d.type] || d.type),
+            datasets: [{
+                label: '故障数量',
+                data: data.map(d => d.count),
+                backgroundColor: (context) => {
+                    const chart = context.chart;
+                    const {ctx, chartArea} = chart;
+                    if (!chartArea) return '#10b981';
+                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                    gradient.addColorStop(0, '#059669');
+                    gradient.addColorStop(1, '#34d399');
+                    return gradient;
+                },
+                borderRadius: 6,
+                borderSkipped: false,
+                hoverBackgroundColor: '#047857',
+                barThickness: 24
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#f3f4f6',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#6b7280',
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#6b7280',
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    padding: 10,
+                    cornerRadius: 6,
+                    displayColors: false
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+}
+
+/* ================= Top10 ================= */
+async function updateTop10() {
+    const res = await fetch('/devices/api/worst-health/');
+    const data = await res.json();
+
+    document.getElementById('top10').innerHTML =
+    data.map(d =>
+        `<div class="rank-item">
+            <span>${d.rank}. ${d.device_id}</span>
+            <b>${Number(d.score).toFixed(1)}</b>
+        </div>`
+    ).join('');
+}
+
+/* ================= 7天统计 ================= */
+async function updateSevenDay() {
+    const res = await fetch('/devices/api/device/7day/');
+    const data = await res.json();
+
+    if (!data.length) {
+        document.getElementById('sevenDayTable').innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无数据</div>';
+        return;
+    }
+
+    const getClass = (val, type) => {
+        if (type === 'cpu' && val > 80) return 'danger-value';
+        if (type === 'cpu' && val > 60) return 'warning-value';
+        if (type === 'memory' && val > 85) return 'danger-value';
+        if (type === 'memory' && val > 70) return 'warning-value';
+        if (type === 'temp' && val > 80) return 'danger-value';
+        if (type === 'temp' && val > 60) return 'warning-value';
+        if (type === 'power' && val > 50) return 'warning-value';
+        if (type === 'net' && val > 80) return 'danger-value';
+        if (type === 'net' && val > 50) return 'warning-value';
+        return 'highlight-value';
+    };
+
+    let html = '<table><thead><tr><th>设备ID</th><th>CPU%</th><th>内存%</th><th>温度°C</th><th>功耗W</th><th>延迟ms</th></tr></thead><tbody>';
+    html += data.map(d => `
+        <tr>
+            <td>${d.device_id}</td>
+            <td class="${getClass(d.avg_cpu, 'cpu')}">${d.avg_cpu}</td>
+            <td class="${getClass(d.avg_memory, 'memory')}">${d.avg_memory}</td>
+            <td class="${getClass(d.avg_temperature, 'temp')}">${d.avg_temperature}</td>
+            <td class="${getClass(d.avg_power, 'power')}">${d.avg_power}</td>
+            <td class="${getClass(d.avg_network_delay, 'net')}">${d.avg_network_delay}</td>
+        </tr>
+    `).join('');
+    html += '</tbody></table>';
+
+    document.getElementById('sevenDayTable').innerHTML = html;
+}
+
+/* ================= MR ================= */
+async function runAnalysis() {
+    const btn = document.getElementById('mrBtn');
+    btn.disabled = true;
+    btn.innerText = '执行中...';
+
+    try {
+        const res = await fetch('/devices/api/run-analysis/', {method:'POST'});
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            alert("MR分析执行完成，数据已更新");
+            location.reload();
+        } else {
+            alert("MR分析执行失败:\n" + (data.message || '未知错误'));
+        }
+    } catch (error) {
+        alert("MR分析请求失败:\n" + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = '执行MR分析';
+    }
+}
+
+/* ================= init ================= */
+document.addEventListener('DOMContentLoaded', () => {
+    initMap();
+    loadOverview();
+    loadMap();
+});
+</script>
+
+</body>
+</html>
