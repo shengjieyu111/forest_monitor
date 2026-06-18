@@ -193,7 +193,7 @@ def _execute_mapreduce(run_id):
         run.heartbeat_at = run.finished_at
         if process.returncode == 0:
             run.status = 'success'
-            run.message = '计算完成，结果已同步到 SQLite'
+            run.message = '计算完成，结果已同步到 MySQL'
         else:
             run.status = 'failed'
             run.message = f'MapReduce 运行失败，退出码 {process.returncode}'

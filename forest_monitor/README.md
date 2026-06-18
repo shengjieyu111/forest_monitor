@@ -37,7 +37,7 @@ http://127.0.0.1:8000/
 1. 编译 Java MapReduce。
 2. 覆盖并运行四种分析任务。
 3. 从 HDFS 读取五类结果。
-4. 写入 SQLite 数据库。
+4. 写入 MySQL 数据库。
 
 也可以只同步数据库：
 
@@ -50,9 +50,33 @@ http://127.0.0.1:8000/
 - `/api/dashboard/`：数据库聚合数据
 - `/api/records/`：每日计算结果明细
 
-## SQLite 配置
+## MySQL 配置
 
-项目默认使用根目录下的 `db.sqlite3`，不需要安装或启动数据库服务。
+项目默认使用 MySQL。先创建数据库：
+
+```sql
+CREATE DATABASE forest_monitor DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+默认连接参数如下，也可以通过环境变量覆盖：
+
+```text
+MYSQL_DATABASE=forest_monitor
+MYSQL_USER=root
+MYSQL_PASSWORD=123456
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+```
+
+PowerShell 临时设置示例：
+
+```powershell
+$env:MYSQL_DATABASE="forest_monitor"
+$env:MYSQL_USER="root"
+$env:MYSQL_PASSWORD="你的MySQL密码"
+$env:MYSQL_HOST="127.0.0.1"
+$env:MYSQL_PORT="3306"
+```
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py migrate
@@ -71,7 +95,7 @@ http://127.0.0.1:8000/
 - 上传文件到 `/waether/input`，支持覆盖同名文件。
 - 删除 HDFS 文件或目录。
 - 上传后自动运行全部 MapReduce，或手动点击运行。
-- 计算完成后自动同步 SQLite 并刷新图表。
+- 计算完成后自动同步 MySQL 并刷新图表。
 - 手动点击“同步数据库并刷新”重新加载 HDFS 计算结果。
 
-后台同一时间只运行一个 MapReduce 套件。任务状态保存在 SQLite 的 `hdfs_app_mapreducerun` 表中。
+后台同一时间只运行一个 MapReduce 套件。任务状态保存在 MySQL 的 `hdfs_app_mapreducerun` 表中。

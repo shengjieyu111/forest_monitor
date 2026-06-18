@@ -27,8 +27,12 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h6l1.5 2H20v8.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l1.5 2H4v1.5Z"/></svg>
                 <span>HDFS 控制台</span>
             </a>
+            <a class="sidebar-link" href="{% url 'visual_app:wildlife-ai' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13c2.2-5.2 6-8 11-8 3.2 0 5 1.8 5 4.5 0 3.5-3.2 6.5-7.6 6.5H9l-3 4H3l2.2-5.1C4.4 14.4 4 13.8 4 13Z"/><path d="M15 8h.01M9 16v4M14 16v4"/></svg>
+                <span>野生动物识别</span>
+            </a>
             <span class="nav-section">数据状态</span>
-            <div class="sidebar-info"><span class="status-dot"></span><div><strong>系统在线</strong><small>SQLite 数据源</small></div></div>
+            <div class="sidebar-info"><span class="status-dot"></span><div><strong>系统在线</strong><small>MySQL 数据源</small></div></div>
         </nav>
         <div class="sidebar-footer">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
@@ -54,7 +58,7 @@
             </div>
             <div class="status-item">
                 <small>数据源</small>
-                <strong id="sourceLabel">SQLite 计算结果库</strong>
+                <strong id="sourceLabel">MySQL 计算结果库</strong>
             </div>
             <div class="clock" id="clock">--:--:--</div>
         </div>

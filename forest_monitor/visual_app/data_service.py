@@ -2,6 +2,8 @@ import math
 from collections import Counter
 from statistics import mean
 
+from django.conf import settings
+
 from mapreduce_app.models import (
     DailyComfortStat,
     DailyRiskStat,
@@ -54,12 +56,13 @@ def _filter_queryset(queryset, start_date=None, end_date=None):
 
 def _source_status():
     latest = MapReduceSyncLog.objects.filter(status='success').first()
+    database = settings.DATABASES['default']
     return {
         'mode': 'database',
         'online': True,
-        'label': 'SQLite 计算结果库',
+        'label': 'MySQL 计算结果库',
         'path': 'mapreduce_app_*',
-        'host': 'db.sqlite3',
+        'host': f"{database.get('HOST', '127.0.0.1')}:{database.get('PORT', '3306')}",
         'synced_at': latest.synced_at.isoformat() if latest else None,
     }
 
@@ -158,7 +161,7 @@ def build_dashboard_payload(start_date=None, end_date=None):
             'record_count': len(rows),
             'updated_at': rows[-1]['date'],
             'sample_interval': '数据库持久化结果',
-            'source_path': 'SQLite: mapreduce_app',
+            'source_path': 'MySQL: mapreduce_app',
         },
         'kpis': {
             'temperature_avg': _round(mean(row['temperature_avg'] for row in rows)),

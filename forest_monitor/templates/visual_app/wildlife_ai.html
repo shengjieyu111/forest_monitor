@@ -1,0 +1,190 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="野生动物保护与 AI 智能识别">
+    <title>野生动物保护与识别</title>
+    <link rel="stylesheet" href="{% static 'visual_app/css/dashboard.css' %}">
+</head>
+<body>
+    <aside class="sidebar">
+        <a class="sidebar-brand" href="{% url 'visual_app:dashboard' %}">
+            <span class="sidebar-logo">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-1.3 3.4-4 5.3-7 6.8 1.2 4.7 3.7 8.3 7 11.2 3.3-2.9 5.8-6.5 7-11.2C16 8.3 13.3 6.4 12 3Z"/><path d="M12 7v10M8.5 11.5 12 14l3.5-2.5"/></svg>
+            </span>
+            <span><strong>Forest</strong><small>Environment OS</small></span>
+        </a>
+        <nav class="sidebar-nav">
+            <span class="nav-section">工作空间</span>
+            <a class="sidebar-link" href="{% url 'visual_app:dashboard' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>
+                <span>数据看板</span>
+            </a>
+            <a class="sidebar-link" href="{% url 'visual_app:hdfs-console' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h6l1.5 2H20v8.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l1.5 2H4v1.5Z"/></svg>
+                <span>HDFS 控制台</span>
+            </a>
+            <a class="sidebar-link active" href="{% url 'visual_app:wildlife-ai' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13c2.2-5.2 6-8 11-8 3.2 0 5 1.8 5 4.5 0 3.5-3.2 6.5-7.6 6.5H9l-3 4H3l2.2-5.1C4.4 14.4 4 13.8 4 13Z"/><path d="M15 8h.01M9 16v4M14 16v4"/></svg>
+                <span>野生动物识别</span>
+            </a>
+            <span class="nav-section">AI 模型</span>
+            <div class="sidebar-info"><span class="status-dot"></span><div><strong>双模型推理</strong><small>YOLO + CLIP</small></div></div>
+        </nav>
+        <div class="sidebar-footer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <span>野生动物保护<br><small>Detection + Classification</small></span>
+        </div>
+    </aside>
+
+    <div class="app-main">
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark"><span></span><span></span><span></span></div>
+            <div>
+                <p class="eyebrow">WILDLIFE AI CONSERVATION</p>
+                <h1>野生动物保护与识别</h1>
+            </div>
+        </div>
+        <div class="header-status">
+            <div class="status-item">
+                <span class="status-dot"></span>
+                <div><small>模型应用</small><strong>目标检测 / 图像分类</strong></div>
+            </div>
+            <div class="clock" id="clock">--:--:--</div>
+        </div>
+    </header>
+
+    <main class="dashboard-shell wildlife-shell">
+        <section class="panel wildlife-hero">
+            <div>
+                <p class="eyebrow">AI MODEL INFERENCE</p>
+                <h2>上传图像，完成鹫峰物种识别、目标定位与保护建议</h2>
+                <p>页面内置不少于两种 AI 智能模型应用：YOLOv8n 用于目标检测和边界框定位，CLIP ViT-B-32 用于鸟类、爬行动物、兽类与植物图像分类。可单独选择模型，也可进行联合分析。</p>
+            </div>
+            <div class="wildlife-model-tags">
+                <span>目标检测 YOLOv8n</span>
+                <span>多提示词 CLIP 分类</span>
+                <span>鹫峰鸟类/爬行/植物库</span>
+            </div>
+        </section>
+
+        <section class="wildlife-layout">
+            <form class="panel wildlife-uploader" id="wildlifeForm">
+                {% csrf_token %}
+                <div class="console-card-head">
+                    <div>
+                        <span class="step-number">01</span>
+                        <div><p class="eyebrow">UPLOAD IMAGE</p><h3>选择识别图片</h3></div>
+                    </div>
+                </div>
+                <label class="file-drop wildlife-drop" id="wildlifeDropZone">
+                    <input type="file" id="wildlifeImage" name="image" accept="image/*">
+                    <strong>点击选择，或将野生动物图片拖到这里</strong>
+                    <span id="wildlifeFileName">支持 JPG / PNG / WEBP，建议小于 8 MB</span>
+                    <small id="wildlifeFileMeta">图片会在本地页面预览，并提交到 Django 后端推理</small>
+                </label>
+                <div class="model-select-grid">
+                    <label class="wildlife-category">
+                        <span>识别对象类型</span>
+                        <select id="wildlifeCategory" name="category">
+                            <option value="auto">自动判断</option>
+                            <option value="鸟类">鸟类</option>
+                            <option value="爬行动物">爬行动物</option>
+                            <option value="植物">植物</option>
+                            <option value="兽类">兽类</option>
+                        </select>
+                    </label>
+                    <label class="model-choice active">
+                        <input type="radio" name="mode" value="ensemble" checked>
+                        <span><strong>联合分析</strong><small>目标检测 + 图像分类</small></span>
+                    </label>
+                    <label class="model-choice">
+                        <input type="radio" name="mode" value="detector">
+                        <span><strong>目标检测</strong><small>YOLOv8n 边界框定位</small></span>
+                    </label>
+                    <label class="model-choice">
+                        <input type="radio" name="mode" value="classifier">
+                        <span><strong>图像分类</strong><small>CLIP 物种 Top5</small></span>
+                    </label>
+                </div>
+                <button class="primary-btn wildlife-submit" type="submit" id="wildlifeSubmit">开始 AI 识别</button>
+            </form>
+
+            <section class="panel wildlife-preview">
+                <div class="console-card-head">
+                    <div>
+                        <span class="step-number">02</span>
+                        <div><p class="eyebrow">RESULT DISPLAY</p><h3>推理结果展示</h3></div>
+                    </div>
+                    <span class="wildlife-state" id="wildlifeState">等待图片</span>
+                </div>
+                <div class="wildlife-image-stage">
+                    <img id="wildlifePreviewImage" alt="野生动物识别结果">
+                    <div class="empty-state" id="wildlifeEmpty">上传图片后将在这里显示检测框与分类结论</div>
+                </div>
+            </section>
+        </section>
+
+        <section class="content-grid wildlife-results">
+            <article class="panel wildlife-summary span-4">
+                <div class="panel-head"><div><p class="eyebrow">FUSION SUMMARY</p><h3>综合研判</h3></div></div>
+                <div class="summary-score">
+                    <strong id="summaryTitle">暂无结果</strong>
+                    <span id="summarySubtitle">请先上传图片进行识别</span>
+                    <div class="score-ring"><b id="summaryConfidence">--</b><small>置信度</small></div>
+                    <p id="summaryEvidence">模型完成推理后会展示目标数量、Top1 物种和保护等级。</p>
+                </div>
+            </article>
+            <article class="panel model-status span-4">
+                <div class="panel-head"><div><p class="eyebrow">MODEL STATUS</p><h3>模型载入与推理状态</h3></div></div>
+                <div class="model-status-list" id="modelStatusList">
+                    <div class="empty-state">等待模型推理</div>
+                </div>
+            </article>
+            <article class="panel recommendations span-4">
+                <div class="panel-head"><div><p class="eyebrow">POPULAR SCIENCE</p><h3>科普建议</h3></div></div>
+                <ul id="recommendationList">
+                    <li>识别完成后生成适合游客阅读的自然观察与科普提示。</li>
+                </ul>
+            </article>
+            <article class="panel detection-table span-6">
+                <div class="panel-head"><div><p class="eyebrow">OBJECT DETECTION</p><h3>目标检测结果</h3></div></div>
+                <div class="table-scroll">
+                    <table>
+                        <thead><tr><th>目标</th><th>置信度</th><th>位置框 x1,y1,x2,y2</th><th>模型</th></tr></thead>
+                        <tbody id="detectionBody"><tr><td colspan="4">暂无检测结果</td></tr></tbody>
+                    </table>
+                </div>
+            </article>
+            <article class="panel visitor-card span-6">
+                <div class="panel-head"><div><p class="eyebrow">SPECIES CARD</p><h3>游客物种名片</h3></div></div>
+                <div class="visitor-profile" id="visitorProfile">
+                    <div class="empty-state">识别完成后展示物种名片</div>
+                </div>
+            </article>
+            <article class="panel visitor-card span-6">
+                <div class="panel-head"><div><p class="eyebrow">VISITOR GUIDE</p><h3>游客观察指南</h3></div></div>
+                <div class="tourist-grid" id="touristGuide">
+                    <div class="tourist-tip"><strong>保持距离</strong><span>不追逐、不投喂、不触摸野生动植物。</span></div>
+                    <div class="tourist-tip"><strong>轻声观察</strong><span>降低噪声，给动物留下安全活动空间。</span></div>
+                    <div class="tourist-tip"><strong>只拍不采</strong><span>植物和昆虫都属于生态系统的一部分。</span></div>
+                </div>
+            </article>
+            <article class="panel visitor-card span-6">
+                <div class="panel-head"><div><p class="eyebrow">NATURE CLASSROOM</p><h3>鹫峰自然课堂</h3></div></div>
+                <div class="nature-classroom" id="natureClassroom">
+                    <p>鹫峰国家森林公园位于北京西山生态廊道，森林、灌丛、草地和沟谷湿地共同构成多样生境。识别结果可作为自然观察参考，遇到不确定物种时建议拍照记录并咨询专业人员。</p>
+                </div>
+            </article>
+        </section>
+    </main>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="{% static 'visual_app/js/dashboard.js' %}"></script>
+    <script src="{% static 'visual_app/js/wildlife_ai.js' %}"></script>
+</body>
+</html>

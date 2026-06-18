@@ -30,7 +30,7 @@ try {
         throw 'Database synchronization failed.'
     }
 
-    Write-Host 'MapReduce analytics completed and results were saved to SQLite.' -ForegroundColor Green
+    Write-Host 'MapReduce analytics completed and results were saved to MySQL.' -ForegroundColor Green
 }
 finally {
     Pop-Location

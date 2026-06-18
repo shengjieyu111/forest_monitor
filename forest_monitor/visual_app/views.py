@@ -15,6 +15,10 @@ def hdfs_console(request):
     return render(request, 'visual_app/hdfs_console.html')
 
 
+def wildlife_ai(request):
+    return render(request, 'visual_app/wildlife_ai.html')
+
+
 def dashboard_data(request):
     try:
         if request.GET.get('refresh') == '1' or not DailyWeatherStat.objects.exists():
