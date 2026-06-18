@@ -101,24 +101,25 @@ class DeviceOverview(models.Model):
 
     analysis_date = models.DateField(unique=True)
 
+
 # =========================
 # 5. Fault统计（MR1）
 # =========================
 class FaultTypeDistribution(models.Model):
+    # 显式声明主键，与数据库 AUTO_INCREMENT 对应
+    id = models.BigAutoField(primary_key=True)
+
     fault_type = models.CharField(max_length=64)
-
     fault_count = models.IntegerField()
-
+    analysis_date = models.DateField()
     device_type = models.CharField(max_length=32, null=True, blank=True)
     location = models.CharField(max_length=32, null=True, blank=True)
 
-    analysis_date = models.DateField()
-
     class Meta:
+        db_table = 'devices_faulttypedistribution'
         unique_together = (
             "fault_type",
             "device_type",
-            "location",
             "analysis_date"
         )
 
@@ -141,23 +142,17 @@ class DeviceHealthAnalysis(models.Model):
 # 7. Fault时空区域统计（MR3）
 # =========================
 class FaultTimeRegionAnalysis(models.Model):
+    # 显式声明主键，与数据库 AUTO_INCREMENT 对应
+    id = models.BigAutoField(primary_key=True)
 
-    # 时间维度（可以是天 / 小时 / 月）
     analysis_date = models.DateField()
-
-    # 区域维度（ENTRANCE / CORE / FIRE / TRAIL / INFRA）
     location = models.CharField(max_length=32)
-
-    # 故障类型
     fault_type = models.CharField(max_length=64)
-
-    # 统计值（MR输出核心）
     fault_count = models.IntegerField()
-
-    # 可选增强字段（推荐保留）
     device_type = models.CharField(max_length=32, null=True, blank=True)
 
     class Meta:
+        db_table = 'devices_faulttimeregionanalysis'
         unique_together = (
             "analysis_date",
             "location",
@@ -165,11 +160,10 @@ class FaultTimeRegionAnalysis(models.Model):
             "device_type"
         )
 
-
 # =========================
 # 8. 设备分析（MR4）
 # =========================
-class Device7DayAnalysis(models.Model):
+class DeviceWorkAnalysis(models.Model):
     device = models.ForeignKey(Device, on_delete=models.CASCADE)
 
     stat_date = models.DateField()

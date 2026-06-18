@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views import View
-from django.db.models import Avg
+from django.db.models import Avg, Sum
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -10,46 +10,19 @@ from .models import (
     DeviceHealthAnalysis,
     FaultTimeRegionAnalysis,
     FaultTypeDistribution,
-    Device7DayAnalysis,
+    DeviceWorkAnalysis,
 )
 from .services import run_device_full_pipeline
 
+
 def devices_dashboard(request):
     return render(request, "../templates/devices_dashboard.html")
-# =========================
-# 1. 概览卡片
-# =========================
-class DeviceOverviewView(View):
-    def get(self, request):
-
-        total = Device.objects.count()
-        online = Device.objects.filter(status="ONLINE").count()
-        fault = Device.objects.filter(status="FAULT").count()
-        offline = total - online
-
-        online_rate = round((online / total) * 100, 2) if total else 0
-
-        avg_health = DeviceHealthAnalysis.objects.aggregate(
-            avg=Avg("health_score")
-        )["avg"] or 0
-
-        return JsonResponse({
-            "total": total,
-            "online": online,
-            "offline": offline,
-            "fault": fault,
-            "online_rate": online_rate,
-            "avg_health": round(float(avg_health), 2)
-        })
-
 
 # =========================
-# 2. 地图数据（融合MR）
+# 2. 地图数据（保持不变）
 # =========================
 class DeviceMapView(View):
     def get(self, request):
-
-        # device_id -> health_score
         health_map = {
             d.device.device_id: d.health_score
             for d in DeviceHealthAnalysis.objects.all()
@@ -71,45 +44,49 @@ class DeviceMapView(View):
 
 
 # =========================
-# 3. 故障类型分布（饼图）
+# 3. 故障类型分布（改造：折线图数据）
 # =========================
 class FaultTypeView(View):
     def get(self, request):
-
+        # 获取所有数据，包含设备类型
         data = FaultTypeDistribution.objects.all()
 
-        return JsonResponse([
-            {
-                "type": d.fault_type,
-                "count": d.fault_count
-            }
-            for d in data
-        ], safe=False)
+        result = []
+        for d in data:
+            result.append({
+                "fault_type": d.fault_type,  # 故障类型 (如 NETWORK_OFFLINE)
+                "device_type": d.device_type,  # 设备类型 (如 CAMERA) -> 用于折线图的系列(Series)
+                "count": d.fault_count  # 数量 -> 用于Y轴
+            })
+
+        return JsonResponse(result, safe=False)
+
 
 # =========================
-# 4. 故障时间区域分析（MR3 - Python版）
+# 4. 故障时间区域分析（改造：堆叠柱状图数据）
 # =========================
 class FaultTimeRegionView(View):
     def get(self, request):
-
+        # 获取所有区域-时间-故障统计数据
         data = FaultTimeRegionAnalysis.objects.all()
 
-        return JsonResponse([
-            {
-                "region": d.region,
-                "time_period": d.time_period,
-                "fault_count": d.fault_count,
-                "analysis_date": str(d.analysis_date)
-            }
-            for d in data
-        ], safe=False)
+        result = []
+        for d in data:
+            result.append({
+                "location": d.location,  # 区域 (如 CORE_SCENIC)
+                "month": str(d.analysis_date)[:7],  # 提取月份 (如 2026-04)
+                "fault_type": d.fault_type,  # 故障类型 (作为堆叠的维度)
+                "fault_count": d.fault_count  # 数量
+            })
+
+        return JsonResponse(result, safe=False)
+
 
 # =========================
-# 5. 健康度最低Top10
+# 5. 健康度最低Top10（保持不变）
 # =========================
 class WorstHealthView(View):
     def get(self, request):
-
         data = DeviceHealthAnalysis.objects.order_by("health_score")[:10]
 
         return JsonResponse([
@@ -125,10 +102,9 @@ class WorstHealthView(View):
 # =========================
 # 6. 设备工作情况统计
 # =========================
-class Device7DayView(View):
+class DeviceWorkView(View):
     def get(self, request):
-
-        data = Device7DayAnalysis.objects.all()
+        data = DeviceWorkAnalysis.objects.all()
 
         return JsonResponse([
             {
@@ -146,14 +122,14 @@ class Device7DayView(View):
 
 
 # =========================
-# 7. MapReduce触发接口
+# 7. MapReduce触发接口（保持不变）
 # =========================
 from django.utils.decorators import method_decorator
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class RunAnalysisView(View):
     def post(self, request):
-
         try:
             run_device_full_pipeline()
             return JsonResponse({"status": "success"})
@@ -163,29 +139,22 @@ class RunAnalysisView(View):
                 "message": str(e)
             }, status=500)
 
-# =========================
-# pipeline（核心）
-# =========================
-@require_POST
-@csrf_exempt
-def run_device_pipeline(request):
-    try:
-        print("===== START DEVICE PIPELINE 1=====")
 
-        result = run_device_full_pipeline()
-
-        print("PIPELINE SUCCESS:", result)
-
-        return JsonResponse({
-            "success": True,
-            "msg": "执行成功",
-            "data": result
-        })
-
-    except Exception as e:
-        print("PIPELINE FAILED:", str(e))
-
-        return JsonResponse({
-            "success": False,
-            "msg": str(e)
-        }, status=500)
+# @require_POST
+# @csrf_exempt
+# def run_device_pipeline(request):
+#     try:
+#         print("===== START DEVICE PIPELINE 1=====")
+#         result = run_device_full_pipeline()
+#         print("PIPELINE SUCCESS:", result)
+#         return JsonResponse({
+#             "success": True,
+#             "msg": "执行成功",
+#             "data": result
+#         })
+#     except Exception as e:
+#         print("PIPELINE FAILED:", str(e))
+#         return JsonResponse({
+#             "success": False,
+#             "msg": str(e)
+#         }, status=500)
