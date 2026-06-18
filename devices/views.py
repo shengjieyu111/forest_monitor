@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 from .models import (
     Device,
     DeviceHealthAnalysis,
-    DeviceWorstHealth,
+    FaultTimeRegionAnalysis,
     FaultTypeDistribution,
     Device7DayAnalysis,
 )
@@ -44,7 +44,7 @@ class DeviceOverviewView(View):
 
 
 # =========================
-# 2. 地图数据（核心：融合MR）
+# 2. 地图数据（融合MR）
 # =========================
 class DeviceMapView(View):
     def get(self, request):
@@ -86,9 +86,26 @@ class FaultTypeView(View):
             for d in data
         ], safe=False)
 
+# =========================
+# 4. 故障时间区域分析（MR3 - Python版）
+# =========================
+class FaultTimeRegionView(View):
+    def get(self, request):
+
+        data = FaultTimeRegionAnalysis.objects.all()
+
+        return JsonResponse([
+            {
+                "region": d.region,
+                "time_period": d.time_period,
+                "fault_count": d.fault_count,
+                "analysis_date": str(d.analysis_date)
+            }
+            for d in data
+        ], safe=False)
 
 # =========================
-# 4. 健康度最低Top10
+# 5. 健康度最低Top10
 # =========================
 class WorstHealthView(View):
     def get(self, request):
@@ -106,7 +123,7 @@ class WorstHealthView(View):
 
 
 # =========================
-# 5. 设备7天工作情况统计
+# 6. 设备工作情况统计
 # =========================
 class Device7DayView(View):
     def get(self, request):
@@ -129,7 +146,7 @@ class Device7DayView(View):
 
 
 # =========================
-# 6. MapReduce触发接口
+# 7. MapReduce触发接口
 # =========================
 from django.utils.decorators import method_decorator
 
