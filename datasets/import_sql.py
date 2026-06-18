@@ -3,7 +3,7 @@ import csv
 from datetime import datetime
 
 # =====================
-# 将devices模块的3个原始表加载入数据库
+# DB连接
 # =====================
 conn = pymysql.connect(
     host="localhost",
@@ -16,7 +16,7 @@ conn = pymysql.connect(
 cursor = conn.cursor()
 
 # =====================
-# Step 0: 读取 device_id -> id 映射（关键优化）
+# Step 0: device_id -> db_id 映射
 # =====================
 device_map = {}
 
@@ -28,17 +28,26 @@ print(f"已加载设备映射: {len(device_map)} 条")
 
 
 # =====================
-# Step 1: 设备表（幂等：存在则更新）
+# 工具：跳过表头
 # =====================
-with open("device_info.csv", "r", encoding="utf-8") as f:
+def is_header(row):
+    return "device" in str(row[0]).lower()
+
+
+# =====================
+# Step 1: devices_info.csv
+# =====================
+with open("devices_info.csv", "r", encoding="utf-8") as f:
     reader = csv.reader(f)
 
     for row in reader:
+        if not row or is_header(row):
+            continue
+
         device_id, name, dtype, sub_type, lon, lat, location, install_date, status = row
         now = datetime.now()
 
         if device_id in device_map:
-            # ===== 更新 =====
             sql = """
             UPDATE devices_device
             SET device_name=%s,
@@ -60,7 +69,6 @@ with open("device_info.csv", "r", encoding="utf-8") as f:
             ))
 
         else:
-            # ===== 插入 =====
             sql = """
             INSERT INTO devices_device
             (device_id, device_name, device_type, sub_type,
@@ -78,23 +86,25 @@ with open("device_info.csv", "r", encoding="utf-8") as f:
             device_map[device_id] = cursor.lastrowid
 
 conn.commit()
-print("devices_device 导入完成（幂等）")
+print("devices_device 导入完成")
 
 
 # =====================
-# Step 2: work log（防重复：device_id + record_time）
+# Step 2: devices_work_log.csv
 # =====================
-with open("device_work_log.csv", "r", encoding="utf-8") as f:
+with open("devices_work_log.csv", "r", encoding="utf-8") as f:
     reader = csv.reader(f)
 
     for row in reader:
+        if not row or len(row) != 8:
+            continue
+
         device_id, cpu, mem, temp, power, net, uptime, record_time = row
 
         db_id = device_map.get(device_id)
         if not db_id:
             continue
 
-        # 判断是否已存在
         cursor.execute("""
             SELECT 1 FROM devices_deviceworklog
             WHERE device_id=%s AND record_time=%s
@@ -123,23 +133,33 @@ with open("device_work_log.csv", "r", encoding="utf-8") as f:
         ))
 
 conn.commit()
-print("devices_deviceworklog 导入完成（幂等）")
+print("devices_work_log 导入完成")
 
 
 # =====================
-# Step 3: fault log（防重复：device_id + record_time + type）
+# Step 3: devices_fault_log.csv
 # =====================
-with open("device_fault_log.csv", "r", encoding="utf-8") as f:
+with open("devices_fault_log.csv", "r", encoding="utf-8") as f:
     reader = csv.reader(f)
 
     for row in reader:
-        _, device_id, fault_type, level, is_resolved, record_time = row
+        if not row:
+            continue
+
+        # 兼容两种格式
+        # 1）有index：id,device_id,type...
+        # 2）无index：device_id,type...
+        if len(row) == 6:
+            _, device_id, fault_type, level, is_resolved, record_time = row
+        elif len(row) == 5:
+            device_id, fault_type, level, is_resolved, record_time = row
+        else:
+            continue
 
         db_id = device_map.get(device_id)
         if not db_id:
             continue
 
-        # 去重判断
         cursor.execute("""
             SELECT 1 FROM devices_devicefault
             WHERE device_id=%s AND record_time=%s AND fault_type=%s
@@ -164,10 +184,8 @@ with open("device_fault_log.csv", "r", encoding="utf-8") as f:
         ))
 
 conn.commit()
-print("devices_devicefault 导入完成（幂等）")
+print("devices_fault_log 导入完成")
 
 
 cursor.close()
 conn.close()
-
-print("全部数据导入完成 ✅（可重复执行无错误）")
