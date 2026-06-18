@@ -1,0 +1,21 @@
+﻿.venv/
+venv/
+env/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.idea/
+.vscode/
+
+db.sqlite3
+*.log
+.env
+
+# Java build files
+*.class
+
+# Temporary uploaded csv files
+datasets/upload_date/
