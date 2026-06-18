@@ -19,6 +19,22 @@ def devices_dashboard(request):
     return render(request, "../templates/devices_dashboard.html")
 
 # =========================
+# 1. 概览数据
+# =========================
+class DeviceOverviewView(View):
+    def get(self, request):
+        total = Device.objects.count()
+        online = Device.objects.filter(status='ONLINE').count()
+        fault = Device.objects.filter(status__in=['FAULT', 'OFFLINE']).count()
+
+        return JsonResponse({
+            "total": total,
+            "online": online,
+            "fault": fault,
+            "rate": round((online / total * 100) if total > 0 else 0, 1)
+        })
+
+# =========================
 # 2. 地图数据（保持不变）
 # =========================
 class DeviceMapView(View):
@@ -63,22 +79,43 @@ class FaultTypeView(View):
 
 
 # =========================
-# 4. 故障时间区域分析（改造：堆叠柱状图数据）
+# =========================
+# 4. 故障时间区域分析（5个区域表格）
 # =========================
 class FaultTimeRegionView(View):
     def get(self, request):
-        # 获取所有区域-时间-故障统计数据
-        data = FaultTimeRegionAnalysis.objects.all()
-
+        data = FaultTimeRegionAnalysis.objects.values(
+            'location', 'analysis_date', 'fault_type', 'fault_count'
+        )
         result = []
         for d in data:
             result.append({
-                "location": d.location,  # 区域 (如 CORE_SCENIC)
-                "month": str(d.analysis_date)[:7],  # 提取月份 (如 2026-04)
-                "fault_type": d.fault_type,  # 故障类型 (作为堆叠的维度)
-                "fault_count": d.fault_count  # 数量
+                "location": d['location'],
+                "month": str(d['analysis_date'])[:7],
+                "fault_type": d['fault_type'],
+                "fault_count": d['fault_count']
             })
+        return JsonResponse(result, safe=False)
 
+
+# =========================
+# 4b. 各区域健康度低于65的设备数量
+# =========================
+class RegionLowHealthView(View):
+    def get(self, request):
+        from django.db.models import Count
+        locations = ['CORE_SCENIC', 'FIRE_ZONE', 'ENTRANCE_GATE', 'INFRA_AREA', 'TRAIL_ZONE']
+        
+        result = []
+        for loc in locations:
+            count = DeviceHealthAnalysis.objects.filter(
+                device__location=loc,
+                health_score__lt=65
+            ).values('device').distinct().count()
+            result.append({
+                "location": loc,
+                "low_health_count": count
+            })
         return JsonResponse(result, safe=False)
 
 
@@ -122,7 +159,26 @@ class DeviceWorkView(View):
 
 
 # =========================
-# 7. MapReduce触发接口（保持不变）
+# 7. 7天设备工作统计（用于表格展示）
+# =========================
+class DeviceSevenDayView(View):
+    def get(self, request):
+        data = DeviceWorkAnalysis.objects.all()
+
+        return JsonResponse([
+            {
+                "device_id": d.device.device_id,
+                "avg_cpu": round(float(d.avg_cpu), 2),
+                "avg_memory": round(float(d.avg_memory), 2),
+                "avg_temperature": round(float(d.avg_temperature), 2),
+                "avg_power": round(float(d.avg_power), 2),
+                "avg_network_delay": round(float(d.avg_network_delay), 2)
+            }
+            for d in data
+        ], safe=False)
+
+# =========================
+# 8. MapReduce触发接口（保持不变）
 # =========================
 from django.utils.decorators import method_decorator
 

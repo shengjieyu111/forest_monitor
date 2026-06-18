@@ -86,6 +86,160 @@
         .danger-value {
             color:#ff4d4f; font-weight:bold;
         }
+
+        .sidebar-tabs {
+            display:flex; border-bottom:1px solid #eee;
+        }
+
+        .tab-btn {
+            flex:1; padding:10px; background:none; border:none;
+            cursor:pointer; font-weight:bold; color:#666;
+            border-bottom:2px solid transparent;
+            transition:all 0.3s;
+        }
+
+        .tab-btn.active {
+            color:#047857; border-bottom-color:#047857;
+        }
+
+        .tab-btn:hover {
+            color:#047857;
+        }
+
+        .tab-content {
+            padding:10px 0;
+        }
+
+        .region-tables {
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 0 10px;
+        }
+
+        .region-table {
+            margin-bottom: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .region-table-header {
+            background: linear-gradient(90deg, #047857, #065f46);
+            color: white;
+            padding: 8px 12px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .region-table table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .region-table th, .region-table td {
+            padding: 6px 8px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .region-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .region-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+
+        .heatmap-container {
+            padding: 10px;
+            overflow-x: auto;
+        }
+
+        .heatmap-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .heatmap-table th, .heatmap-table td {
+            padding: 8px 12px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+        }
+
+        .heatmap-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .heatmap-table td.region-col {
+            background: #f0fdf4;
+            font-weight: bold;
+            color: #047857;
+        }
+
+        .heatmap-cell {
+            font-weight: bold;
+            color: white;
+            border-radius: 4px;
+        }
+
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 11px;
+            color: #666;
+        }
+
+        .heatmap-legend-bar {
+            width: 150px;
+            height: 12px;
+            background: linear-gradient(to right, #dcfce7, #16a34a, #f59e0b, #ef4444);
+            border-radius: 2px;
+        }
+
+        .subcharts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 5px;
+        }
+
+        .subchart {
+            height: 140px;
+            background: white;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .subcharts-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 11px;
+        }
+
+        .subcharts-legend span {
+            display: flex;
+            align-items: center;
+        }
     </style>
 </head>
 
@@ -112,6 +266,7 @@
     </select>
 
     <button onclick="filterDevices()">搜索</button>
+    <button onclick="resetFilters()" style="background:#6b7280;">重置</button>
     <button onclick="runAnalysis()" id="mrBtn">执行MR分析</button>
 </div>
 
@@ -125,7 +280,7 @@
             <div><span style="display:inline-block;width:20px;height:3px;background:#52c41a;border-radius:2px;"></span> 在线</div>
             <div><span style="display:inline-block;width:20px;height:3px;background:#ff4d4f;border-radius:2px;"></span> 故障</div>
             <div><span style="display:inline-block;width:20px;height:3px;background:#8c8c8c;border-radius:2px;"></span> 维修中</div>
-            <div><span style="display:inline-block;width:20px;height:3px;background:#faad14;border-radius:2px;"></span> 健康度&lt;40</div>
+            <div><span style="display:inline-block;width:20px;height:3px;background:#faad14;border-radius:2px;"></span> 健康度&lt;65</div>
             <div><span style="display:inline-block;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:12px solid #333;"></span> 摄像头(三角)</div>
             <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#333;"></span> 传感器(圆形)</div>
         </div>
@@ -133,14 +288,32 @@
 
     <div class="sidebar">
 
-        <div class="sidebar-header">健康度最低Top10</div>
-        <div class="rank" id="top10"></div>
+        <div class="sidebar-tabs">
+            <button class="tab-btn active" onclick="switchTab('work')">工作情况</button>
+            <button class="tab-btn" onclick="switchTab('fault')">故障分析</button>
+        </div>
 
-        <div class="sidebar-header">故障统计</div>
-        <div class="chart-container"><canvas id="faultChart"></canvas></div>
+        <div id="work-tab" class="tab-content">
+            <div class="sidebar-header">健康度最差Top10</div>
+            <div class="rank" id="top10"></div>
 
-        <div class="sidebar-header">设备工作统计</div>
-        <div class="seven-day-table" id="sevenDayTable"></div>
+            <div class="sidebar-header">设备工作情况记录</div>
+            <div class="seven-day-table" id="sevenDayTable"></div>
+        </div>
+
+        <div id="fault-tab" class="tab-content" style="display:none;">
+            <div class="sidebar-header">故障类型分析</div>
+            <div class="chart-container"><canvas id="faultChart"></canvas></div>
+
+            <div class="sidebar-header">故障时区分析</div>
+            <div class="subcharts-container">
+                <div class="subchart"><canvas id="faultRegion1"></canvas></div>
+                <div class="subchart"><canvas id="faultRegion2"></canvas></div>
+                <div class="subchart"><canvas id="faultRegion3"></canvas></div>
+                <div class="subchart"><canvas id="faultRegion4"></canvas></div>
+                <div class="subchart"><canvas id="faultRegion5"></canvas></div>
+            </div>
+        </div>
 
     </div>
 
@@ -151,6 +324,7 @@ let map;
 let markers = [];
 let allDevices = [];
 let faultChart = null;
+let faultTimeRegionChart = null;
 
 /* ================= 地图初始化（修复缩放） ================= */
 function initMap() {
@@ -214,7 +388,6 @@ async function loadMap() {
     const res = await fetch('/devices/api/device/map/');
     allDevices = await res.json();
     renderMarkers(allDevices);
-    updateFaultChart();
     updateTop10();
     updateSevenDay();
 }
@@ -222,10 +395,9 @@ async function loadMap() {
 /* ================= marker规则 ================= */
 function getColor(d) {
     const healthScore = parseFloat(d.health_score) || 0;
-    if (d.status === 'FAULT') return '#ff4d4f';
+    if (d.status === 'FAULT' || d.status === 'OFFLINE') return '#ff4d4f';
     if (d.status === 'MAINTENANCE') return '#8c8c8c';
-    if (d.status === 'OFFLINE') return '#8c8c8c';
-    if (healthScore < 40) return '#faad14';
+    if (healthScore < 65) return '#faad14';
     return '#52c41a';
 }
 
@@ -326,9 +498,25 @@ function filterDevices() {
     );
 
     renderMarkers(r);
+
+    if (k && r.length === 1) {
+        const device = r[0];
+        showDeviceDetail(device);
+        map.setCenter([device.longitude, device.latitude]);
+        map.setZoom(17);
+    }
 }
 
-/* ================= 故障图 ================= */
+/* ================= 重置搜索 ================= */
+function resetFilters() {
+    document.getElementById('keyword').value = '';
+    document.getElementById('status').value = '';
+    renderMarkers(allDevices);
+    map.setCenter([116.035, 39.995]);
+    map.setZoom(14);
+}
+
+/* ================= 故障图（折线图）================= */
 async function updateFaultChart() {
     const res = await fetch('/devices/api/faults/');
     const data = await res.json();
@@ -337,31 +525,81 @@ async function updateFaultChart() {
         'LENS_DIRTY': '镜头脏污',
         'SENSOR_ERROR': '传感器错误',
         'NETWORK_OFFLINE': '网络离线',
-        'POWER_FAILURE': '电源故障',
-        'NETWORK_ERROR': '网络错误',
         'OVERHEAT': '设备过热',
+        'POWER_FAILURE': '电源故障',
+        'CPU_SPIKE': 'CPU飙升',
         'STORAGE_FULL': '存储空间满',
-        'CAMERA_BLACK': '摄像头黑屏',
-        'SIGNAL_LOST': '信号丢失',
-        'UNKNOWN': '未知故障'
+        'IMAGE_BLUR': '图像模糊',
+        'SIGNAL_WEAK': '信号微弱'
     };
 
     const ctx = document.getElementById('faultChart');
 
     if (faultChart) faultChart.destroy();
 
+    const faultTypes = [...new Set(data.map(d => d.fault_type))].sort();
+    const labels = faultTypes.map(f => faultTypeMap[f] || f);
+
+    const cameraData = faultTypes.map(f => {
+        const item = data.find(d => d.fault_type === f && d.device_type === 'CAMERA');
+        return item ? item.count : 0;
+    });
+
+    const sensorData = faultTypes.map(f => {
+        const item = data.find(d => d.fault_type === f && d.device_type === 'SENSOR');
+        return item ? item.count : 0;
+    });
+
     faultChart = new Chart(ctx, {
-        type: 'bar',
+        type: 'line',
         data: {
-            labels: data.map(d =>
-                `${faultTypeMap[d.fault_type] || d.fault_type} (${d.device_type})`
-            ),
-            datasets: [{
-                label: '故障数量',
-                data: data.map(d => d.count),
-                backgroundColor: '#10b981',
-                borderRadius: 6
-            }]
+            labels: labels,
+            datasets: [
+                {
+                    label: '摄像头',
+                    data: cameraData,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                },
+                {
+                    label: '传感器',
+                    data: sensorData,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: '故障数量'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: '故障类型'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
         }
     });
 }
@@ -417,6 +655,158 @@ async function updateSevenDay() {
     html += '</tbody></table>';
 
     document.getElementById('sevenDayTable').innerHTML = html;
+}
+
+/* ================= 故障时区分析（5个区域子图）================= */
+let regionCharts = [];
+async function updateFaultTimeRegionChart() {
+    const res = await fetch('/devices/api/location/');
+    const data = await res.json();
+
+    regionCharts.forEach(c => c.destroy());
+    regionCharts = [];
+
+    const locationMap = {
+        'CORE_SCENIC': '核心景区',
+        'FIRE_ZONE': '森林防火区',
+        'ENTRANCE_GATE': '出入口及卡口',
+        'INFRA_AREA': '基础设施区',
+        'TRAIL_ZONE': '步道与游览区'
+    };
+
+    const faultTypeMap = {
+        'LENS_DIRTY': '镜头脏污',
+        'SENSOR_ERROR': '传感器错误',
+        'NETWORK_OFFLINE': '网络离线',
+        'OVERHEAT': '设备过热',
+        'POWER_FAILURE': '电源故障',
+        'CPU_SPIKE': 'CPU飙升',
+        'STORAGE_FULL': '存储空间满',
+        'IMAGE_BLUR': '图像模糊',
+        'SIGNAL_WEAK': '信号微弱'
+    };
+
+    const colors = [
+        '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+        '#06b6d4', '#84cc16', '#f97316', '#ec4899'
+    ];
+
+    const locations = ['CORE_SCENIC', 'FIRE_ZONE', 'ENTRANCE_GATE', 'INFRA_AREA', 'TRAIL_ZONE'];
+    const months = [...new Set(data.map(d => d.month))].sort();
+    const faultTypes = [...new Set(data.map(d => d.fault_type))].sort();
+
+    if (!data || data.length === 0) {
+        locations.forEach((loc, idx) => {
+            const ctx = document.getElementById(`faultRegion${idx + 1}`);
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: `${locationMap[loc]} - 暂无数据` }
+                    }
+                }
+            });
+            regionCharts.push(chart);
+        });
+        return;
+    }
+
+    locations.forEach((loc, idx) => {
+        const ctx = document.getElementById(`faultRegion${idx + 1}`);
+        
+        const datasets = faultTypes.map((faultType, fIdx) => {
+            const dataPoints = months.map(month => {
+                const items = data.filter(d => d.location === loc && d.month === month && d.fault_type === faultType);
+                return items.reduce((sum, item) => sum + item.fault_count, 0);
+            });
+            return {
+                label: faultTypeMap[faultType] || faultType,
+                data: dataPoints,
+                backgroundColor: colors[fIdx % colors.length],
+                borderRadius: 3,
+                barPercentage: 0.8
+            };
+        });
+
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: datasets
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        stacked: true,
+                        grid: { color: '#f0f0f0' },
+                        ticks: { display: false }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: locationMap[loc],
+                        font: { size: 12, weight: 'bold' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => {
+                                if (items.length > 0) return `${locationMap[loc]} - ${items[0].label}`;
+                                return '';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        regionCharts.push(chart);
+    });
+
+    const legendContainer = document.querySelector('.subcharts-container');
+    if (legendContainer) {
+        let legendHtml = '<div class="subcharts-legend">';
+        faultTypes.forEach((ft, idx) => {
+            legendHtml += `<span><span style="background:${colors[idx % colors.length]};width:12px;height:12px;border-radius:2px;display:inline-block;margin-right:4px;"></span>${faultTypeMap[ft] || ft}</span>`;
+        });
+        legendHtml += '</div>';
+        
+        const existingLegend = legendContainer.querySelector('.subcharts-legend');
+        if (existingLegend) {
+            existingLegend.innerHTML = legendHtml;
+        } else {
+            legendContainer.insertAdjacentHTML('beforeend', legendHtml);
+        }
+    }
+}
+
+/* ================= 标签页切换 ================= */
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+
+    event.target.classList.add('active');
+    
+    if (tab === 'work') {
+        document.getElementById('work-tab').style.display = 'block';
+    } else {
+        document.getElementById('fault-tab').style.display = 'block';
+        if (!faultChart) updateFaultChart();
+        else faultChart.resize();
+        updateFaultTimeRegionChart();
+    }
 }
 
 /* ================= MR ================= */

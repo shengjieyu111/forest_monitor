@@ -150,6 +150,7 @@ class FaultTimeRegionAnalysis(models.Model):
     fault_type = models.CharField(max_length=64)
     fault_count = models.IntegerField()
     device_type = models.CharField(max_length=32, null=True, blank=True)
+    fault_level = models.IntegerField(default=1)
 
     class Meta:
         db_table = 'devices_faulttimeregionanalysis'
@@ -157,7 +158,8 @@ class FaultTimeRegionAnalysis(models.Model):
             "analysis_date",
             "location",
             "fault_type",
-            "device_type"
+            "device_type",
+            "fault_level"
         )
 
 # =========================
