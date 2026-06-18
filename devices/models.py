@@ -88,7 +88,7 @@ class DeviceFault(models.Model):
 
 
 # =========================
-# 4. Overview（MR0 / Python）
+# 4. Overview（Python）
 # =========================
 class DeviceOverview(models.Model):
     total_count = models.IntegerField()
@@ -101,9 +101,29 @@ class DeviceOverview(models.Model):
 
     analysis_date = models.DateField(unique=True)
 
+# =========================
+# 5. Fault统计（MR1）
+# =========================
+class FaultTypeDistribution(models.Model):
+    fault_type = models.CharField(max_length=64)
+
+    fault_count = models.IntegerField()
+
+    device_type = models.CharField(max_length=32, null=True, blank=True)
+    location = models.CharField(max_length=32, null=True, blank=True)
+
+    analysis_date = models.DateField()
+
+    class Meta:
+        unique_together = (
+            "fault_type",
+            "device_type",
+            "location",
+            "analysis_date"
+        )
 
 # =========================
-# 5. Health（MR2）
+# 6. Health（MR2）
 # =========================
 class DeviceHealthAnalysis(models.Model):
     device = models.ForeignKey(Device, on_delete=models.CASCADE)
@@ -117,36 +137,37 @@ class DeviceHealthAnalysis(models.Model):
             models.Index(fields=["analysis_date"]),
         ]
 
-
 # =========================
-# 6. Worst TopN（MR3）
+# 7. Fault时空区域统计（MR3）
 # =========================
-class DeviceWorstHealth(models.Model):
-    rank_id = models.IntegerField()
+class FaultTimeRegionAnalysis(models.Model):
 
-    device = models.ForeignKey(Device, on_delete=models.CASCADE)
-    health_score = models.FloatField()
-
+    # 时间维度（可以是天 / 小时 / 月）
     analysis_date = models.DateField()
 
-    class Meta:
-        unique_together = ("rank_id", "analysis_date")
+    # 区域维度（ENTRANCE / CORE / FIRE / TRAIL / INFRA）
+    location = models.CharField(max_length=32)
 
-
-# =========================
-# 7. Fault统计（MR1）
-# =========================
-class FaultTypeDistribution(models.Model):
+    # 故障类型
     fault_type = models.CharField(max_length=64)
+
+    # 统计值（MR输出核心）
     fault_count = models.IntegerField()
-    analysis_date = models.DateField()
+
+    # 可选增强字段（推荐保留）
+    device_type = models.CharField(max_length=32, null=True, blank=True)
 
     class Meta:
-        unique_together = ("fault_type", "analysis_date")
+        unique_together = (
+            "analysis_date",
+            "location",
+            "fault_type",
+            "device_type"
+        )
 
 
 # =========================
-# 8. 7天分析（MR4）
+# 8. 设备分析（MR4）
 # =========================
 class Device7DayAnalysis(models.Model):
     device = models.ForeignKey(Device, on_delete=models.CASCADE)
