@@ -22,11 +22,9 @@ from .services import (
     import_gate_result,
     import_hourly_result,
     import_local_date_partitions,
-    import_visitor_records_from_csv,
-    run_daily_mapreduce_remote,
-    run_gate_mapreduce_remote,
-    run_hourly_mapreduce_remote,
-    upload_visitor_csv_to_hdfs_remote,
+    run_daily_mapreduce,
+    run_hourly_mapreduce,
+    run_gate_mapreduce
 )
 
 
@@ -216,105 +214,35 @@ def peak_warning_api(request):
 
 @require_POST
 def run_all_mr_and_import_api(request):
+    # 定义新的任务列表，使用更新后的函数名
     jobs = [
-        ("daily", "每日游客统计", run_daily_mapreduce_remote, import_daily_result),
-        ("hourly", "小时游客统计", run_hourly_mapreduce_remote, import_hourly_result),
-        ("gate", "入口游客统计", run_gate_mapreduce_remote, import_gate_result),
+        ("daily", "每日游客统计", run_daily_mapreduce, import_daily_result),
+        ("hourly", "小时游客统计", run_hourly_mapreduce, import_hourly_result),
+        ("gate", "入口游客统计", run_gate_mapreduce, import_gate_result),
     ]
+
     steps = []
     all_success = True
 
-    upload_step = {
-        "step": "upload_visitor_csv",
-        "name": "检查 HDFS 日期分区输入目录",
-        "success": False,
-    }
-    try:
-        upload_step.update(
-            {"success": True, "detail": upload_visitor_csv_to_hdfs_remote()}
-        )
-    except Exception as exc:
-        upload_step["error"] = str(exc)
-        steps.append(upload_step)
-        return JsonResponse(
-            {
-                "code": 500,
-                "message": "HDFS 日期分区输入目录检查失败",
-                "success": False,
-                "data": {"steps": steps},
-            },
-            status=500,
-            json_dumps_params={"ensure_ascii": False},
-        )
-    steps.append(upload_step)
+    # --- 移除了 upload_visitor_csv_to_hdfs_remote 步骤 ---
 
-    raw_import_step = {
-        "step": "import_visitor_records",
-        "name": "检查游客原始数据 MySQL 同步状态",
-        "success": False,
-    }
-    try:
-        existing_rows = VisitorRecord.objects.count()
-        if existing_rows:
-            raw_import_step.update(
-                {
-                    "success": True,
-                    "skipped": True,
-                    "existing_rows": existing_rows,
-                    "detail": "MySQL 已有游客原始数据，无需重复全量导入。",
-                }
-            )
-        else:
-            raw_result = import_visitor_records_from_csv(clear_existing=False)
-            partition_result = import_local_date_partitions()
-            raw_import_step.update(
-                {
-                    "success": True,
-                    "imported_rows": raw_result.imported_rows,
-                    "skipped_rows": raw_result.skipped_rows,
-                    "partition_files": partition_result["imported_files"],
-                    "partition_rows": partition_result["imported_rows"],
-                }
-            )
-    except Exception as exc:
-        raw_import_step["error"] = str(exc)
-        steps.append(raw_import_step)
-        return JsonResponse(
-            {
-                "code": 500,
-                "message": "游客原始数据导入 MySQL 失败",
-                "success": False,
-                "data": {"steps": steps},
-            },
-            status=500,
-            json_dumps_params={"ensure_ascii": False},
-        )
-    steps.append(raw_import_step)
+    # --- 移除了 import_visitor_records_from_csv 和 import_local_date_partitions 步骤 ---
 
+    # 循环执行新的 MapReduce 和导入任务
     for job_key, job_name, run_remote, import_result in jobs:
         remote_step = {
             "step": f"run_{job_key}_mapreduce",
-            "name": f"运行{job_name} MapReduce 并下载结果",
+            "name": f"运行{job_name} MapReduce",
             "success": False,
         }
         try:
+            # 调用新的 run_xxx_mapreduce 函数
             remote_step.update({"success": True, "detail": run_remote()})
         except Exception as exc:
             remote_step["error"] = str(exc)
-            steps.append(remote_step)
-            steps.append(
-                {
-                    "step": f"import_{job_key}_result",
-                    "name": f"导入{job_name}结果到 MySQL",
-                    "success": False,
-                    "skipped": True,
-                    "error": "远程 MapReduce 或结果下载失败，未执行导入。",
-                }
-            )
             all_success = False
-            continue
-
         steps.append(remote_step)
+
         import_step = {
             "step": f"import_{job_key}_result",
             "name": f"导入{job_name}结果到 MySQL",

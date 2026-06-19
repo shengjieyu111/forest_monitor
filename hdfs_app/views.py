@@ -5,7 +5,6 @@ from django.conf import settings
 from django.shortcuts import render
 from django.utils import timezone
 from visitor.models import VisitorRecord
-from visitor.services import import_visitor_records_for_date
 
 from .services import (
     HDFS_BASE_DIR,
@@ -87,12 +86,8 @@ def hdfs_index(request):
                 local_path = _save_uploaded_csv(uploaded_file, selected_date)
                 result = hdfs_upload_by_date(local_path, selected_date)
                 if result["success"]:
-                    import_result = import_visitor_records_for_date(
-                        local_path, selected_date
-                    )
                     message = (
                         f"已上传 {selected_date} 游客数据到 HDFS 日期分区，"
-                        f"并同步 {import_result.imported_rows} 条记录到 MySQL。"
                     )
                     message_type = "success"
                 else:
