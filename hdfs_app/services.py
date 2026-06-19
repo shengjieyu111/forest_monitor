@@ -7,7 +7,7 @@ import paramiko
 from django.conf import settings
 
 
-SSH_HOST = "192.168.56.100"
+SSH_HOST = "192.168.10.11"
 SSH_PORT = 22
 SSH_USERNAME = "root"
 
@@ -15,8 +15,8 @@ SSH_USERNAME = "root"
 SSH_PASSWORD = os.getenv("HADOOP_SSH_PASSWORD", "")
 SSH_KEY_FILENAME = os.getenv("HADOOP_SSH_KEY_FILENAME", "")
 
-REMOTE_DATASET_DIR = "/root/forest_monitor/datasets"
-HDFS_BASE_DIR = "/forest/visitor/input"
+REMOTE_DATASET_DIR = "/hxh/forest_monitor/datasets"
+HDFS_BASE_DIR = "/hxh/forest_monitor/visitor/input"
 HDFS_HISTORY_DIR = "/forest/visitor/input/history"
 HDFS_HISTORY_FILE = "/forest/visitor/input/history/visitor_records.csv"
 HDFS_LEGACY_FILE = "/forest/visitor/input/visitor_records.csv"

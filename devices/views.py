@@ -16,7 +16,7 @@ from .services import run_device_full_pipeline
 
 
 def devices_dashboard(request):
-    return render(request, "../templates/devices_dashboard.html")
+    return render(request, "../templates/devices_dashboard.html", {"page": "devices"})
 
 # =========================
 # 1. 概览数据
@@ -35,7 +35,7 @@ class DeviceOverviewView(View):
         })
 
 # =========================
-# 2. 地图数据（保持不变）
+# 2. 地图数据
 # =========================
 class DeviceMapView(View):
     def get(self, request):
@@ -60,7 +60,7 @@ class DeviceMapView(View):
 
 
 # =========================
-# 3. 故障类型分布（改造：折线图数据）
+# 3. 故障类型分布（折线图）
 # =========================
 class FaultTypeView(View):
     def get(self, request):
@@ -80,7 +80,7 @@ class FaultTypeView(View):
 
 # =========================
 # =========================
-# 4. 故障时间区域分析（5个区域表格）
+# 4. 故障时间区域分析（5个雷达图）
 # =========================
 class FaultTimeRegionView(View):
     def get(self, request):
@@ -99,7 +99,7 @@ class FaultTimeRegionView(View):
 
 
 # =========================
-# 4b. 各区域健康度低于65的设备数量
+# 5. 各区域健康度低于65的设备数量
 # =========================
 class RegionLowHealthView(View):
     def get(self, request):
@@ -120,16 +120,25 @@ class RegionLowHealthView(View):
 
 
 # =========================
-# 5. 健康度最低Top10（保持不变）
+# 6. 健康度最低Bottom10（保持不变）
 # =========================
 class WorstHealthView(View):
     def get(self, request):
         data = DeviceHealthAnalysis.objects.order_by("health_score")[:10]
 
+        LOCATION_MAP = {
+            "CORE_SCENIC": "核心景区",
+            "FIRE_ZONE": "森林防火区",
+            "ENTRANCE_GATE": "出入口及卡口",
+            "INFRA_AREA": "基础设施区",
+            "TRAIL_ZONE": "步道与游览区",
+        }
+
         return JsonResponse([
             {
                 "rank": i + 1,
                 "device_id": d.device.device_id,
+                "location": LOCATION_MAP.get(d.device.location, d.device.location),
                 "score": round(float(d.health_score), 2)
             }
             for i, d in enumerate(data)
@@ -137,7 +146,7 @@ class WorstHealthView(View):
 
 
 # =========================
-# 6. 设备工作情况统计
+# 7. 设备工作情况统计
 # =========================
 class DeviceWorkView(View):
     def get(self, request):
@@ -159,7 +168,7 @@ class DeviceWorkView(View):
 
 
 # =========================
-# 7. 7天设备工作统计（用于表格展示）
+# 8. 设备工作统计（用于表格展示）
 # =========================
 class DeviceSevenDayView(View):
     def get(self, request):
@@ -178,7 +187,7 @@ class DeviceSevenDayView(View):
         ], safe=False)
 
 # =========================
-# 8. MapReduce触发接口（保持不变）
+# 9. MapReduce触发接口
 # =========================
 from django.utils.decorators import method_decorator
 
@@ -194,23 +203,3 @@ class RunAnalysisView(View):
                 "status": "error",
                 "message": str(e)
             }, status=500)
-
-
-# @require_POST
-# @csrf_exempt
-# def run_device_pipeline(request):
-#     try:
-#         print("===== START DEVICE PIPELINE 1=====")
-#         result = run_device_full_pipeline()
-#         print("PIPELINE SUCCESS:", result)
-#         return JsonResponse({
-#             "success": True,
-#             "msg": "执行成功",
-#             "data": result
-#         })
-#     except Exception as e:
-#         print("PIPELINE FAILED:", str(e))
-#         return JsonResponse({
-#             "success": False,
-#             "msg": str(e)
-#         }, status=500)

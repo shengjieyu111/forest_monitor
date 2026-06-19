@@ -1,191 +1,161 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>HDFS 日期分区数据管理</title>
-  <script defer src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    :root {
-      --forest-950: #142b22;
-      --forest-900: #19382c;
-      --forest-800: #24503f;
-      --forest-700: #2d6a52;
-      --forest-100: #e9f3ee;
-      --forest-50: #f3f8f5;
-      --cream: #fbfaf5;
-      --canvas: #f3f5f1;
-      --card: #fffefb;
-      --ink: #1d2c25;
-      --muted: #6e7b74;
-      --line: #dfe6e1;
-      --danger: #c94b43;
-      --shadow: 0 10px 30px rgba(28, 58, 46, .07);
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; color: var(--ink); background: var(--canvas); font: 17px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; }
-    button, input { font: inherit; }
-    .app { min-height: 100vh; display: grid; grid-template-columns: 208px minmax(0, 1fr); }
-    .sidebar { position: sticky; top: 0; height: 100vh; padding: 22px 14px; border-right: 1px solid #dce4de; background: var(--cream); }
-    .brand { display: flex; align-items: center; gap: 13px; padding: 2px 8px 26px; }
-    .brand-mark { width: 48px; height: 48px; display: grid; place-items: center; color: #fff; border-radius: 10px; background: var(--forest-800); box-shadow: 0 7px 18px rgba(36,80,63,.2); }
-    .brand-mark svg { width: 25px; height: 25px; }
-    .brand strong { display: block; color: var(--forest-950); font-size: 19px; font-weight: 800; white-space: nowrap; }
-    .brand span { display: block; margin-top: 4px; color: #73837a; font-size: 12px; font-weight: 600; }
-    .nav-label { padding: 18px 11px 9px; color: #7f8d85; font-size: 15px; font-weight: 700; }
-    .nav { display: grid; gap: 4px; }
-    .nav-item { min-height: 54px; display: flex; align-items: center; gap: 11px; padding: 0 12px; color: #56675e; border-radius: 8px; text-decoration: none; font-size: 18px; font-weight: 600; }
-    .nav-item:hover { color: var(--forest-800); background: #f0f4f1; }
-    .nav-item.active { color: var(--forest-900); background: #e3eee8; font-weight: 700; }
-    .nav-item svg { width: 21px; height: 21px; }
-    .content { width: 100%; padding: 26px 24px 44px; }
-    .eyebrow { margin-bottom: 8px; color: var(--forest-700); font-size: 15px; font-weight: 800; }
-    h1 { margin: 0; color: var(--forest-950); font-size: 42px; font-weight: 800; line-height: 1.15; }
-    .subtitle { margin: 11px 0 0; color: var(--muted); font-size: 18px; line-height: 1.7; }
-    .operations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
-    .operation-card { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); }
-    .operation-head { display: flex; align-items: center; gap: 10px; margin-bottom: 17px; }
-    .operation-head svg { width: 27px; height: 27px; color: var(--forest-700); }
-    .operation-head h2 { margin: 0; color: var(--forest-950); font-size: 23px; font-weight: 800; }
-    .fields { display: grid; gap: 12px; }
-    .field label { display: block; margin-bottom: 8px; color: var(--forest-900); font-size: 16px; font-weight: 800; }
-    .control { width: 100%; height: 50px; padding: 0 14px; color: var(--forest-950); border: 1px solid #c5d6cc; border-radius: 8px; background: #fafcfb; font-size: 17px; font-weight: 600; outline: none; }
-    .control:focus { border-color: var(--forest-700); box-shadow: 0 0 0 3px rgba(45,106,82,.1); }
-    .file-control { height: auto; padding: 7px; color: var(--muted); }
-    .file-control::file-selector-button { margin-right: 12px; padding: 9px 14px; color: var(--forest-900); border: 0; border-radius: 6px; background: var(--forest-100); font-size: 16px; font-weight: 800; cursor: pointer; }
-    .button-row { display: flex; gap: 9px; margin-top: 14px; }
-    .button-row form { flex: 1; display: flex; }
-    .button-row form .button { width: 100%; }
-    .button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 0 18px; color: #fff; border: 0; border-radius: 8px; background: var(--forest-800); font-size: 17px; font-weight: 800; cursor: pointer; }
-    .button:hover { background: var(--forest-700); }
-    .button.secondary { color: #174c38; border: 1px solid #a9cbbb; background: #edf6f1; }
-    .button.danger { background: var(--danger); box-shadow: 0 6px 15px rgba(201,75,67,.18); }
-    .button:disabled { opacity: .65; cursor: wait; }
-    .button svg { width: 18px; height: 18px; }
-    .button-row .button { flex: 1; }
-    .message { margin-top: 16px; padding: 16px 18px; border-radius: 12px; font-size: 17px; font-weight: 700; white-space: pre-wrap; line-height: 1.65; }
-    .message.success { color: #246b50; border: 1px solid #bcdcca; background: #ebf7f0; }
-    .message.error { color: #9c3832; border: 1px solid #efc3bf; background: #fff0ee; }
-    .results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
-    .panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); }
-    .panel-head { min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 18px; border-bottom: 1px solid #edf1ee; }
-    .panel-title { display: flex; align-items: center; gap: 10px; }
-    .panel-head svg { width: 19px; height: 19px; color: var(--forest-700); }
-    .panel-head h2 { margin: 0; color: var(--forest-950); font-size: 23px; font-weight: 800; }
-    .refresh-form { margin: 0; }
-    .refresh-button { display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; color: var(--forest-900); border: 1px solid #b8d2c3; border-radius: 7px; background: var(--forest-50); font-size: 16px; font-weight: 700; cursor: pointer; }
-    pre { height: 430px; margin: 0; overflow: auto; padding: 22px; color: #e4f1ea; background: #183127; font: 16px/1.8 Consolas, "Courier New", monospace; white-space: pre-wrap; word-break: break-all; }
-    .empty { height: 430px; display: grid; place-items: center; padding: 30px; color: #687a70; font-size: 18px; font-weight: 600; text-align: center; }
-    .history-path { display: block; margin-top: 10px; padding: 12px 14px; overflow-wrap: anywhere; color: #1e6248; border: 1px solid #d4e6dc; border-radius: 7px; background: var(--forest-50); font-size: 16px; font-weight: 700; }
-    @media (max-width: 1120px) { .app { grid-template-columns: 74px minmax(0,1fr); } .brand { justify-content: center; padding-inline: 0; } .brand-copy, .nav-label, .nav-item span { display: none; } .nav-item { justify-content: center; padding: 0; } }
-    @media (max-width: 760px) { .app { display: block; } .sidebar { display: none; } .content { padding: 20px 14px 30px; } h1 { font-size: 31px; } .operations, .results { grid-template-columns: 1fr; } .button-row { flex-direction: column; } pre, .empty { height: 320px; } }
-  </style>
-</head>
-<body>
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark"><i data-lucide="trees"></i></div>
-        <div class="brand-copy"><strong>鹫峰林场监测</strong><span>JIUFENG FOREST</span></div>
+{% extends "forest_monitor/base.html" %}
+
+{% block title %}HDFS 日期分区数据管理{% endblock %}
+
+{% block css %}
+<style>
+  :root {
+    --forest-950: #142b22;
+    --forest-900: #19382c;
+    --forest-800: #24503f;
+    --forest-700: #2d6a52;
+    --forest-100: #e9f3ee;
+    --forest-50: #f3f8f5;
+    --cream: #fbfaf5;
+    --canvas: #f3f5f1;
+    --card: #fffefb;
+    --ink: #1d2c25;
+    --muted: #6e7b74;
+    --line: #dfe6e1;
+    --danger: #c94b43;
+    --shadow: 0 10px 30px rgba(28, 58, 46, .07);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--canvas); font: 17px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; }
+  button, input { font: inherit; }
+  .content { width: 100%; padding: 16px 18px 30px; }
+  .eyebrow { margin-bottom: 6px; color: var(--forest-700); font-size: 13px; font-weight: 700; }
+  h1 { margin: 0; color: var(--forest-950); font-size: 28px; font-weight: 700; line-height: 1.2; }
+  .subtitle { margin: 8px 0 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
+  .operations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+  .operation-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: var(--shadow); }
+  .operation-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .operation-head svg { width: 20px; height: 20px; color: var(--forest-700); }
+  .operation-head h2 { margin: 0; color: var(--forest-950); font-size: 18px; font-weight: 700; }
+  .fields { display: grid; gap: 10px; }
+  .field label { display: block; margin-bottom: 6px; color: var(--forest-900); font-size: 14px; font-weight: 700; }
+  .control { width: 100%; height: 40px; padding: 0 12px; color: var(--forest-950); border: 1px solid #c5d6cc; border-radius: 6px; background: #fafcfb; font-size: 14px; font-weight: 600; outline: none; }
+  .control:focus { border-color: var(--forest-700); box-shadow: 0 0 0 3px rgba(45,106,82,.1); }
+  .file-control { height: auto; padding: 6px; color: var(--muted); }
+  .file-control::file-selector-button { margin-right: 10px; padding: 6px 12px; color: var(--forest-900); border: 0; border-radius: 5px; background: var(--forest-100); font-size: 14px; font-weight: 700; cursor: pointer; }
+  .button-row { display: flex; gap: 8px; margin-top: 12px; }
+  .button-row form { flex: 1; display: flex; }
+  .button-row form .button { width: 100%; }
+  .button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; color: #fff; border: 0; border-radius: 6px; background: var(--forest-800); font-size: 14px; font-weight: 700; cursor: pointer; }
+  .button:hover { background: var(--forest-700); }
+  .button.secondary { color: #174c38; border: 1px solid #a9cbbb; background: #edf6f1; }
+  .button.danger { background: var(--danger); box-shadow: 0 6px 15px rgba(201,75,67,.18); }
+  .button:disabled { opacity: .65; cursor: wait; }
+  .button svg { width: 16px; height: 16px; }
+  .button-row .button { flex: 1; }
+  .message { margin-top: 12px; padding: 12px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; white-space: pre-wrap; line-height: 1.6; }
+  .message.success { color: #246b50; border: 1px solid #bcdcca; background: #ebf7f0; }
+  .message.error { color: #9c3832; border: 1px solid #efc3bf; background: #fff0ee; }
+  .results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+  .panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: var(--shadow); }
+  .panel-head { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; border-bottom: 1px solid #edf1ee; }
+  .panel-title { display: flex; align-items: center; gap: 8px; }
+  .panel-head svg { width: 16px; height: 16px; color: var(--forest-700); }
+  .panel-head h2 { margin: 0; color: var(--forest-950); font-size: 18px; font-weight: 700; }
+  .refresh-form { margin: 0; }
+  .refresh-button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; color: var(--forest-900); border: 1px solid #b8d2c3; border-radius: 5px; background: var(--forest-50); font-size: 14px; font-weight: 600; cursor: pointer; }
+  pre { height: 300px; margin: 0; overflow: auto; padding: 16px; color: #e4f1ea; background: #183127; font: 14px/1.6 Consolas, "Courier New", monospace; white-space: pre-wrap; word-break: break-all; }
+  .empty { height: 300px; display: grid; place-items: center; padding: 20px; color: #687a70; font-size: 15px; font-weight: 600; text-align: center; }
+  .history-path { display: block; margin-top: 8px; padding: 10px 12px; overflow-wrap: anywhere; color: #1e6248; border: 1px solid #d4e6dc; border-radius: 6px; background: var(--forest-50); font-size: 14px; font-weight: 600; }
+  @media (max-width: 1120px) { .app { grid-template-columns: 74px minmax(0,1fr); } .brand { justify-content: center; padding-inline: 0; } .brand-copy, .nav-label, .nav-item span { display: none; } .nav-item { justify-content: center; padding: 0; } }
+  @media (max-width: 760px) { .app { display: block; } .sidebar { display: none; } .content { padding: 20px 14px 30px; } h1 { font-size: 31px; } .operations, .results { grid-template-columns: 1fr; } .button-row { flex-direction: column; } pre, .empty { height: 320px; } }
+</style>
+{% endblock %}
+
+{% block page_title %}HDFS 日期分区数据管理{% endblock %}
+
+{% block content %}
+
+  <section class="operations">
+    <article class="operation-card">
+      <div class="operation-head"><i data-lucide="archive"></i><h2>历史游客数据</h2></div>
+      <span class="history-path">{{ hdfs_history_file }}</span>
+      <div class="button-row">
+        <form class="operation-form" method="post">{% csrf_token %}<button class="button" type="submit" name="action" value="upload_history"><i data-lucide="cloud-upload"></i><span>上传历史数据</span></button></form>
+        <form class="operation-form" method="post">{% csrf_token %}<button class="button secondary" type="submit" name="action" value="preview_history"><i data-lucide="file-search"></i><span>预览历史数据前 20 行</span></button></form>
       </div>
-      <div class="nav-label">智能监测</div>
-      <nav class="nav">
-        <a class="nav-item" href="#"><i data-lucide="layout-dashboard"></i><span>综合概览</span></a>
-        <a class="nav-item" href="/visitor/"><i data-lucide="users-round"></i><span>游客流量</span></a>
-        <a class="nav-item active" href="{% url 'hdfs_app:index' %}"><i data-lucide="database"></i><span>HDFS 管理</span></a>
-      </nav>
-    </aside>
+    </article>
 
-    <main class="content">
-      <div class="eyebrow">BEIJING FORESTRY UNIVERSITY</div>
-      <h1>HDFS 日期分区数据管理</h1>
+    <form class="operation-card operation-form" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="upload_by_date">
+      <div class="operation-head"><i data-lucide="cloud-upload"></i><h2>上传指定日期数据</h2></div>
+      <div class="fields">
+        <div class="field"><label for="date-str">数据日期</label><input class="control" id="date-str" type="date" name="date_str" value="{{ selected_date }}" required></div>
+        <div class="field"><label for="csv-file"> CSV 文件</label><input class="control file-control" id="csv-file" type="file" name="csv_file" accept=".csv,text/csv" required></div>
+      </div>
+      <div class="button-row"><button class="button" type="submit"><i data-lucide="upload"></i><span>上传到日期分区</span></button></div>
+    </form>
 
-      <section class="operations">
-        <article class="operation-card">
-          <div class="operation-head"><i data-lucide="archive"></i><h2>历史游客数据</h2></div>
-          <span class="history-path">{{ hdfs_history_file }}</span>
-          <div class="button-row">
-            <form class="operation-form" method="post">{% csrf_token %}<button class="button" type="submit" name="action" value="upload_history"><i data-lucide="cloud-upload"></i><span>上传历史数据</span></button></form>
-            <form class="operation-form" method="post">{% csrf_token %}<button class="button secondary" type="submit" name="action" value="preview_history"><i data-lucide="file-search"></i><span>预览历史数据前 20 行</span></button></form>
-          </div>
-        </article>
+    <form class="operation-card operation-form" method="post">
+      {% csrf_token %}
+      <div class="operation-head"><i data-lucide="scan-text"></i><h2>预览指定日期数据</h2></div>
+      <div class="field"><label for="preview-date">数据日期</label><input class="control" id="preview-date" type="date" name="preview_date" value="{{ selected_date }}" required></div>
+      <div class="button-row">
+        <button class="button secondary" type="submit" name="action" value="preview_by_date"><i data-lucide="align-start-vertical"></i><span>预览前 20 行</span></button>
+        <button class="button secondary" type="submit" name="action" value="preview_tail_by_date"><i data-lucide="align-end-vertical"></i><span>预览最后 20 行</span></button>
+      </div>
+    </form>
 
-        <form class="operation-card operation-form" method="post" enctype="multipart/form-data">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="upload_by_date">
-          <div class="operation-head"><i data-lucide="cloud-upload"></i><h2>上传指定日期数据</h2></div>
-          <div class="fields">
-            <div class="field"><label for="date-str">数据日期</label><input class="control" id="date-str" type="date" name="date_str" value="{{ selected_date }}" required></div>
-            <div class="field"><label for="csv-file">游客 CSV 文件</label><input class="control file-control" id="csv-file" type="file" name="csv_file" accept=".csv,text/csv" required></div>
-          </div>
-          <div class="button-row"><button class="button" type="submit"><i data-lucide="upload"></i><span>上传到日期分区</span></button></div>
-        </form>
+    <form class="operation-card operation-form" method="post" onsubmit="return confirm('确认删除该日期 HDFS 游客数据吗？')">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete_by_date">
+      <div class="operation-head"><i data-lucide="trash-2"></i><h2>删除日期分区</h2></div>
+      <div class="field"><label for="delete-date">数据日期</label><input class="control" id="delete-date" type="date" name="delete_date" value="{{ selected_date }}" required></div>
+      <div class="button-row"><button class="button danger" type="submit"><i data-lucide="trash-2"></i><span>删除该日期数据</span></button></div>
+    </form>
+  </section>
 
-        <form class="operation-card operation-form" method="post">
-          {% csrf_token %}
-          <div class="operation-head"><i data-lucide="scan-text"></i><h2>预览指定日期数据</h2></div>
-          <div class="field"><label for="preview-date">数据日期</label><input class="control" id="preview-date" type="date" name="preview_date" value="{{ selected_date }}" required></div>
-          <div class="button-row">
-            <button class="button secondary" type="submit" name="action" value="preview_by_date"><i data-lucide="align-start-vertical"></i><span>预览前 20 行</span></button>
-            <button class="button secondary" type="submit" name="action" value="preview_tail_by_date"><i data-lucide="align-end-vertical"></i><span>预览最后 20 行</span></button>
-          </div>
-        </form>
+  {% if message %}<div class="message {{ message_type }}">{{ message }}</div>{% endif %}
 
-        <form class="operation-card operation-form" method="post" onsubmit="return confirm('确认删除该日期 HDFS 游客数据吗？')">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="delete_by_date">
-          <div class="operation-head"><i data-lucide="trash-2"></i><h2>删除日期分区</h2></div>
-          <div class="field"><label for="delete-date">数据日期</label><input class="control" id="delete-date" type="date" name="delete_date" value="{{ selected_date }}" required></div>
-          <div class="button-row"><button class="button danger" type="submit"><i data-lucide="trash-2"></i><span>删除该日期数据</span></button></div>
-        </form>
-      </section>
+  <section class="results">
+    <article class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i data-lucide="files"></i><h2>HDFS 日期分区列表</h2></div>
+        <form class="refresh-form operation-form" method="post">{% csrf_token %}<button class="refresh-button" type="submit" name="action" value="list"><i data-lucide="refresh-cw"></i><span>刷新</span></button></form>
+      </div>
+      {% if file_list %}<pre>{{ file_list }}</pre>{% else %}<div class="empty">当前根目录暂无日期分区，或尚未连接 HDFS。</div>{% endif %}
+    </article>
+    <article class="panel">
+      <div class="panel-head"><div class="panel-title"><i data-lucide="file-search"></i><h2>文件内容预览</h2></div></div>
+      {% if preview_text %}<pre>{{ preview_text }}</pre>{% else %}<div class="empty">选择日期后，可查看该分区文件的前 20 行或最后 20 行。</div>{% endif %}
+    </article>
+  </section>
+{% endblock %}
 
-      {% if message %}<div class="message {{ message_type }}">{{ message }}</div>{% endif %}
+{% block js %}
+<script>
+  window.addEventListener("load", () => {
+    if (window.lucide) window.lucide.createIcons();
+  });
 
-      <section class="results">
-        <article class="panel">
-          <div class="panel-head">
-            <div class="panel-title"><i data-lucide="files"></i><h2>HDFS 日期分区列表</h2></div>
-            <form class="refresh-form operation-form" method="post">{% csrf_token %}<button class="refresh-button" type="submit" name="action" value="list"><i data-lucide="refresh-cw"></i><span>刷新</span></button></form>
-          </div>
-          {% if file_list %}<pre>{{ file_list }}</pre>{% else %}<div class="empty">当前根目录暂无日期分区，或尚未连接 HDFS。</div>{% endif %}
-        </article>
-        <article class="panel">
-          <div class="panel-head"><div class="panel-title"><i data-lucide="file-search"></i><h2>文件内容预览</h2></div></div>
-          {% if preview_text %}<pre>{{ preview_text }}</pre>{% else %}<div class="empty">选择日期后，可查看该分区文件的前 20 行或最后 20 行。</div>{% endif %}
-        </article>
-      </section>
-    </main>
-  </div>
-
-  <script>
-    window.addEventListener("load", () => {
-      if (window.lucide) window.lucide.createIcons();
-    });
-
-    document.querySelectorAll(".operation-form").forEach(form => {
-      form.addEventListener("submit", event => {
-        if (event.defaultPrevented) return;
-        const button = event.submitter || form.querySelector('button[type="submit"]');
-        if (!button) return;
-        if (button.name === "action" && button.value) {
-          let actionInput = form.querySelector('input[type="hidden"][name="action"]');
-          if (!actionInput) {
-            actionInput = document.createElement("input");
-            actionInput.type = "hidden";
-            actionInput.name = "action";
-            form.appendChild(actionInput);
-          }
-          actionInput.value = button.value;
+  document.querySelectorAll(".operation-form").forEach(form => {
+    form.addEventListener("submit", event => {
+      if (event.defaultPrevented) return;
+      const button = event.submitter || form.querySelector('button[type="submit"]');
+      if (!button) return;
+      if (button.name === "action" && button.value) {
+        let actionInput = form.querySelector('input[type="hidden"][name="action"]');
+        if (!actionInput) {
+          actionInput = document.createElement("input");
+          actionInput.type = "hidden";
+          actionInput.name = "action";
+          form.appendChild(actionInput);
         }
-        const originalText = button.textContent.trim();
-        window.setTimeout(() => {
-          button.disabled = true;
-          button.innerHTML = `<i data-lucide="loader-circle"></i><span>${originalText}处理中...</span>`;
-          if (window.lucide) window.lucide.createIcons();
-        }, 0);
-      });
+        actionInput.value = button.value;
+      }
+      const originalText = button.textContent.trim();
+      window.setTimeout(() => {
+        button.disabled = true;
+        button.innerHTML = `<i data-lucide="loader-circle"></i><span>${originalText}处理中...</span>`;
+        if (window.lucide) window.lucide.createIcons();
+      }, 0);
     });
-  </script>
-</body>
-</html>
+  });
+</script>
+{% endblock %}

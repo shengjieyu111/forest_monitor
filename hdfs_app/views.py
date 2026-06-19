@@ -163,6 +163,7 @@ def hdfs_index(request):
         request,
         "hdfs/index.html",
         {
+            "page": "hdfs",
             "message": message,
             "message_type": message_type,
             "file_list": file_list,

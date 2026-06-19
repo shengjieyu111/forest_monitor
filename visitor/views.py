@@ -102,6 +102,7 @@ def dashboard(request):
     recent_records = VisitorRecord.objects.all()[:12]
 
     context = {
+        "page": "visitor",
         "days": days,
         "start": start,
         "end": end,

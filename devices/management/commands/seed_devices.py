@@ -66,7 +66,7 @@ class Command(BaseCommand):
         # CSV文件
         # =========================
         info_file = open("devices_info.csv", "w", newline="", encoding="utf-8")
-        work_file = open("devices_work_log.csv", "w", newline="", encoding="utf-8")
+        work_file = open("devices_work_log(1.5w).csv", "w", newline="", encoding="utf-8")
         fault_file = open("devices_fault_log.csv", "w", newline="", encoding="utf-8")
 
         info_writer = csv.writer(info_file)

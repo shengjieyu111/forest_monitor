@@ -90,9 +90,9 @@ print("devices_device 导入完成")
 
 
 # =====================
-# Step 2: devices_work_log.csv
+# Step 2: devices_work_log(1.5w).csv
 # =====================
-with open("devices_work_log.csv", "r", encoding="utf-8") as f:
+with open("devices_work_log(1.5w).csv", "r", encoding="utf-8") as f:
     reader = csv.reader(f)
 
     for row in reader:
