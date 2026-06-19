@@ -36,7 +36,6 @@
       font-size: 17px;
       letter-spacing: 0;
     }
-    .page-head { display: none !important; }
     button { font: inherit; }
     .run-button {
       height: 44px;
@@ -62,12 +61,6 @@
     .run-button.loading svg { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .content { width: 100%; max-width: none; margin: 0; padding: 0; }
-    .page-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
-    .page-head-actions { display: flex; align-items: center; gap: 12px; }
-    .eyebrow { margin-bottom: 7px; color: var(--forest-600); font-size: 14px; font-weight: 800; }
-    h1 { margin: 0; color: var(--forest-950); font-size: 42px; font-weight: 800; line-height: 1.15; }
-    .sync-note { min-height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 15px; color: #1f7653; border: 1px solid #cce5d8; border-radius: 9px; background: #e8f4ee; font-size: 16px; font-weight: 800; }
-    .sync-note svg { width: 17px; height: 17px; }
     .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
     .metric {
       height: 100px;
@@ -184,9 +177,6 @@
     }
     @media (max-width: 760px) {
       .content { padding: 16px 14px 28px; }
-      .page-head { align-items: flex-start; flex-direction: column; gap: 14px; }
-      .page-head-actions { width: 100%; justify-content: space-between; }
-      h1 { font-size: 32px; }
       .metrics, .side-stack { grid-template-columns: 1fr; }
       .metric { height: 116px; }
       .chart { height: 340px; }
@@ -200,14 +190,7 @@
 
 {% block content %}
 
-<section class="page-head" style="margin-top: -20px; padding: 22px 24px;">
-  <div class="page-head-actions">
-    <div class="sync-note"><i data-lucide="circle-check-big"></i><span>统计数据已同步</span></div>
-    <button class="run-button" id="run-mr-button" onclick="runMapReduceJobs()"><i data-lucide="play"></i><span>运行 MapReduce</span></button>
-  </div>
-</section>
-
-  <section class="metrics">
+  <section class="metrics" style="margin-top: 12px;">
     <article class="metric">
       <div><span class="metric-label">累计游客</span><strong class="metric-value" id="total-count">--</strong></div>
       <div class="metric-icon green"><i data-lucide="users-round"></i></div>

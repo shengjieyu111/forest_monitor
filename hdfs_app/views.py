@@ -8,7 +8,7 @@ from visitor.models import VisitorRecord
 
 from .services import (
     HDFS_BASE_DIR,
-    HDFS_HISTORY_FILE,
+    HDFS_VISITORS_HISTORY_FILE,
     hdfs_delete_by_date,
     hdfs_list,
     hdfs_preview_by_date,
@@ -170,6 +170,6 @@ def hdfs_index(request):
             "preview_text": preview_text,
             "selected_date": selected_date,
             "hdfs_directory": HDFS_BASE_DIR,
-            "hdfs_history_file": HDFS_HISTORY_FILE,
+            "hdfs_history_file": HDFS_VISITORS_HISTORY_FILE,
         },
     )
