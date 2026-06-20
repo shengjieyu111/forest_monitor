@@ -1,0 +1,622 @@
+{% extends "forest_monitor/base.html" %}
+{% load static %}
+
+{% block title %}气象监测分析{% endblock %}
+
+{% block css %}
+<style>
+    :root {
+        --forest-950:#142b22;
+        --forest-900:#19382c;
+        --forest-800:#24503f;
+        --forest-700:#2d6a52;
+        --forest-600:#398466;
+        --forest-100:#e9f3ee;
+        --forest-50:#f3f8f5;
+        --cream:#fbfaf5;
+        --canvas:#f3f5f1;
+        --card:#fffefb;
+        --ink:#1d2c25;
+        --muted:#6e7b74;
+        --line:#dfe6e1;
+        --shadow:0 10px 30px rgba(28,58,46,.07);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: var(--canvas); }
+    body {
+        min-width: 320px;
+        min-height: 100vh;
+        color: var(--ink);
+        background: var(--canvas);
+        font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        font-size: 17px;
+    }
+    button { font: inherit; }
+    a { color: inherit; text-decoration: none; }
+    .content { padding: 0; }
+
+    .stats {
+        display:flex; gap:10px; padding:10px; background:#fff;
+        border-bottom:1px solid var(--line);
+    }
+
+    .stat-card {
+        flex:1; text-align:center; padding:10px;
+        background:#f8f9fa; border-radius:10px;
+    }
+
+    .stat-card .value { font-size:20px; font-weight:bold; color:#047857; }
+    .stat-card .label { color:#666; font-size:12px; margin-top:4px; }
+
+    .temp-card .value { color:#ef4444; }
+    .humidity-card .value { color:#0ea5e9; }
+    .pm-card .value { color:#10b981; }
+    .risk-card .value { color:#dc2626; }
+    .comfort-card .value { color:#3b82f6; }
+
+    .controls {
+        display:flex; gap:10px; padding:10px; background:#fff;
+        border-bottom:1px solid var(--line); align-items:center;
+    }
+
+    .controls input, .controls select, .controls button {
+        padding:6px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px;
+    }
+
+    .controls button {
+        background:#047857; color:white; cursor:pointer; font-weight:600;
+    }
+
+    .controls button.secondary {
+        background:#fff; color:#666; border-color:#ddd;
+    }
+
+    .controls button.secondary:hover { background:#f8f9fa; }
+
+    .weather-body { display:flex; height:calc(100vh - 180px); }
+
+    .main-content { flex:1; margin:10px; display:flex; flex-direction:column; gap:10px; overflow-y:auto; }
+
+    .weather-panel { width:450px; background:#fff; margin:10px; border-radius:10px; overflow-y:auto; }
+
+    .chart-row { display:flex; gap:10px; flex:1; min-height:0; }
+    .chart-box { flex:1; background:#fff; border-radius:10px; padding:10px; display:flex; flex-direction:column; }
+    .chart-box h4 { font-size:14px; color:#333; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #eee; font-weight:bold; }
+
+    .chart-container { flex:1; min-height:300px; }
+
+    .large-chart { flex:1; background:#fff; border-radius:10px; padding:10px; display:flex; flex-direction:column; min-height:0; }
+    .large-chart h4 { font-size:14px; color:#333; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #eee; font-weight:bold; }
+
+    .sidebar-header { padding:12px; font-weight:bold; background:#f8f9fa; border-bottom:1px solid #eee; font-size:14px; color:#333; }
+
+    .rank { padding:10px; font-size:12px; }
+
+    .rank-item { display:flex; justify-content:space-between; padding:6px; border-bottom:1px solid #f0f0f0; }
+
+    .risk-badge {
+        display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:bold;
+    }
+    .risk-high { background:#fee2e2; color:#dc2626; }
+    .risk-medium { background:#fef3c7; color:#d97706; }
+    .risk-low { background:#d1fae5; color:#059669; }
+    .risk-normal { background:#e0f2fe; color:#0284c7; }
+
+    .sidebar-tabs { display:flex; border-bottom:1px solid #eee; }
+
+    .tab-btn {
+        flex:1; padding:10px; background:none; border:none;
+        cursor:pointer; font-weight:bold; color:#666; font-size:14px;
+        border-bottom:2px solid transparent; transition:all 0.3s;
+    }
+
+    .tab-btn.active { color:#047857; border-bottom-color:#047857; }
+    .tab-btn:hover { color:#047857; }
+
+    .tab-content { padding:10px 0; }
+
+    .data-table { padding:10px; font-size:12px; }
+
+    .data-table table { width:100%; border-collapse:collapse; }
+
+    .data-table th, .data-table td { padding:6px 4px; text-align:center; border:1px solid #eee; }
+
+    .data-table th { background:#f8f9fa; font-weight:bold; color:#666; font-size:11px; }
+
+    .data-table tr:hover { background:#f8f9fa; }
+
+    .highlight-value { color:#047857; font-weight:bold; }
+    .warning-value { color:#faad14; font-weight:bold; }
+    .danger-value { color:#ff4d4f; font-weight:bold; }
+
+    .alert-list { padding:10px; }
+
+    .alert-item {
+        padding:12px; margin-bottom:8px; border-radius:8px; border-left:4px solid; background:#f8f9fa;
+    }
+
+    .alert-high { background:#fef2f2; border-color:#dc2626; }
+    .alert-medium { background:#fffbeb; border-color:#d97706; }
+    .alert-low { background:#ecfdf5; border-color:#059669; }
+    .alert-normal { background:#eff6ff; border-color:#3b82f6; }
+
+    .alert-time { font-size:11px; color:#999; margin-top:5px; }
+
+    .health-score {
+        display:flex; align-items:center; justify-content:center;
+        flex-direction:column; padding:20px; text-align:center;
+    }
+
+    .score-circle {
+        width:120px; height:120px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        font-size:36px; font-weight:bold; color:white; margin-bottom:10px;
+        box-shadow:0 6px 18px rgba(0,0,0,0.12);
+        position:relative;
+    }
+
+    .score-circle::after {
+        content:''; position:absolute; inset:5px; border-radius:50%;
+        background:rgba(255,255,255,0.15);
+    }
+
+    .score-circle span { position:relative; z-index:1; }
+
+    .score-good { background:linear-gradient(135deg, #10b981, #059669); }
+    .score-normal { background:linear-gradient(135deg, #f59e0b, #d97706); }
+    .score-warning { background:linear-gradient(135deg, #f97316, #ea580c); }
+    .score-danger { background:linear-gradient(135deg, #ef4444, #dc2626); }
+
+    .no-data { text-align:center; color:#999; padding:20px; font-size:14px; }
+
+    .metric-row {
+        display:flex; justify-content:space-between; padding:8px 10px;
+        border-bottom:1px solid #eee; font-size:12px;
+    }
+    .metric-row:last-child { border-bottom:none; }
+    .metric-label { color:#666; }
+    .metric-value { font-weight:bold; color:#333; }
+
+    .topn-score { font-size:13px; font-weight:bold; color:#dc2626; }
+</style>
+{% endblock %}
+
+{% block page_title %}气象监测分析{% endblock %}
+
+{% block content %}
+
+<div class="stats">
+    <div class="stat-card temp-card">
+        <div class="value" id="kpiTemp">--</div>
+        <div class="label">平均温度 (°C)</div>
+    </div>
+    <div class="stat-card humidity-card">
+        <div class="value" id="kpiHumidity">--</div>
+        <div class="label">平均湿度 (%)</div>
+    </div>
+    <div class="stat-card pm-card">
+        <div class="value" id="kpiPm25">--</div>
+        <div class="label">平均 PM2.5</div>
+    </div>
+    <div class="stat-card risk-card">
+        <div class="value" id="kpiRiskEvents">--</div>
+        <div class="label">风险事件</div>
+    </div>
+    <div class="stat-card comfort-card">
+        <div class="value" id="kpiComfortRate">--%</div>
+        <div class="label">舒适度</div>
+    </div>
+</div>
+
+<div class="controls">
+    <label>开始日期: <input type="date" id="startDate"></label>
+    <label>结束日期: <input type="date" id="endDate"></label>
+    <button onclick="applyFilter()">更新数据</button>
+    <button onclick="resetFilter()" class="secondary">全部数据</button>
+    <button onclick="runAnalysis()" id="mrBtn" style="margin-left:auto;">执行MR分析</button>
+</div>
+
+<div class="weather-body">
+
+    <div class="main-content">
+
+        <div class="chart-box">
+            <h4>温湿度趋势</h4>
+            <div class="chart-container" id="tempHumidityChart"></div>
+        </div>
+
+        <div class="chart-box">
+            <h4>PM2.5 趋势</h4>
+            <div class="chart-container" id="pm25Chart"></div>
+        </div>
+
+        <div class="large-chart">
+            <h4>24小时气象分布</h4>
+            <div class="chart-container" id="hourlyChart"></div>
+        </div>
+
+    </div>
+
+    <div class="weather-panel">
+
+        <div class="sidebar-tabs">
+            <button class="tab-btn active" onclick="switchTab('health')">健康评分</button>
+            <button class="tab-btn" onclick="switchTab('daily')">每日统计</button>
+            <button class="tab-btn" onclick="switchTab('risk')">风险预警</button>
+        </div>
+
+        <div id="health-tab" class="tab-content">
+            <div class="health-score">
+                <div class="score-circle" id="healthScore"><span>--</span></div>
+                <div id="healthLevel" style="font-size:16px; font-weight:bold; color:#333;"></div>
+                <div id="healthAdvice" style="margin-top:8px; color:#666; font-size:12px; line-height:1.5;"></div>
+            </div>
+
+            <div class="sidebar-header">关键指标</div>
+            <div class="rank" id="healthMetrics"></div>
+
+            <div class="sidebar-header">高风险日期 Top5</div>
+            <div class="rank" id="topnList"></div>
+        </div>
+
+        <div id="daily-tab" class="tab-content" style="display:none;">
+            <div class="sidebar-header">每日气象数据</div>
+            <div class="data-table" id="dailyTable"></div>
+        </div>
+
+        <div id="risk-tab" class="tab-content" style="display:none;">
+            <div class="sidebar-header">预警信息</div>
+            <div class="alert-list" id="alertList"></div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script>
+let tempHumidityChart, pm25Chart, hourlyChart;
+
+const API_BASE = '/weather/api';
+
+async function loadOverview() {
+    try {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        let url = `${API_BASE}/overview/`;
+        const params = [];
+        if (startDate) params.push(`start_date=${startDate}`);
+        if (endDate) params.push(`end_date=${endDate}`);
+        if (params.length) url += '?' + params.join('&');
+
+        const res = await fetch(url);
+        const d = await res.json();
+
+        if (d.data && d.data.empty) {
+            showNoData();
+            return;
+        }
+
+        const data = d.data;
+
+        if (data.kpis) {
+            document.getElementById('kpiTemp').innerText = data.kpis.temperature_avg + '°';
+            document.getElementById('kpiHumidity').innerText = data.kpis.humidity_avg + '%';
+            document.getElementById('kpiPm25').innerText = data.kpis.pm25_avg;
+            document.getElementById('kpiRiskEvents').innerText = data.kpis.risk_events;
+            document.getElementById('kpiComfortRate').innerText = data.kpis.comfort_rate + '%';
+        }
+
+        if (data.trend) renderTrendCharts(data.trend);
+        if (data.hourly) renderHourlyChart(data.hourly);
+        if (data.daily) renderDailyTable(data.daily);
+        if (data.alerts) renderAlertList(data.alerts);
+        if (data.topn) renderTopnList(data.topn);
+
+        // 默认加载健康评分
+        loadHealthSummary();
+
+    } catch (error) {
+        console.error('加载数据失败:', error);
+        showNoData();
+    }
+}
+
+async function loadHealthSummary() {
+    try {
+        const res = await fetch(`${API_BASE}/health-summary/`);
+        const d = await res.json();
+        const data = d.data;
+
+        if (!data) return;
+
+        document.getElementById('healthScore').innerHTML = `<span>${data.health_score || '--'}</span>`;
+        document.getElementById('healthScore').className = 'score-circle score-' + (data.level || 'normal');
+        document.getElementById('healthLevel').innerText = data.level_text || '';
+        document.getElementById('healthAdvice').innerText = data.advice || '';
+
+        let metricsHtml = `
+            <div class="metric-row"><span class="metric-label">平均风险率</span><span class="metric-value">${data.average_risk_rate || 0}%</span></div>
+            <div class="metric-row"><span class="metric-label">平均舒适度</span><span class="metric-value">${data.average_comfort_rate || 0}%</span></div>
+        `;
+        document.getElementById('healthMetrics').innerHTML = metricsHtml;
+
+    } catch (error) {
+        console.error('加载健康评分失败:', error);
+    }
+}
+
+function renderTrendCharts(trend) {
+    const getAutoRange = (data, paddingRatio = 0.3) => {
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = max - min;
+        const padding = range * paddingRatio || 5;
+        return [Math.floor(min - padding), Math.ceil(max + padding)];
+    };
+
+    const tempRange = getAutoRange(trend.temperature, 0.8);
+    const humidityRange = getAutoRange(trend.humidity, 0.5);
+
+    if (!tempHumidityChart) tempHumidityChart = echarts.init(document.getElementById('tempHumidityChart'));
+    tempHumidityChart.setOption({
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#ddd', borderWidth: 1, textStyle: { color: '#333' }, padding: [10, 14] },
+        legend: { data: ['温度(°C)', '湿度(%)'], top: 5, textStyle: { fontSize: 12, color: '#666' } },
+        grid: { left: '8%', right: '8%', bottom: '12%', top: '12%', containLabel: true },
+        xAxis: { type: 'category', data: trend.times, axisLine: { lineStyle: { color: '#ddd' } }, axisLabel: { fontSize: 11, color: '#666', rotate: 40 }, axisTick: { show: false } },
+        yAxis: [
+            { type: 'value', name: '温度(°C)', position: 'left', splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } }, axisLine: { show: false }, axisLabel: { fontSize: 11, color: '#ef4444' }, min: tempRange[0], max: tempRange[1], interval: 1 },
+            { type: 'value', name: '湿度(%)', position: 'right', splitLine: { show: false }, axisLine: { show: false }, axisLabel: { fontSize: 11, color: '#0ea5e9' }, min: humidityRange[0], max: humidityRange[1], interval: 2 }
+        ],
+        series: [
+            { name: '温度(°C)', type: 'line', yAxisIndex: 0, data: trend.temperature, smooth: true, symbol: 'circle', symbolSize: 10, lineStyle: { width: 4, color: '#ef4444' }, itemStyle: { color: '#ef4444', borderWidth: 2, borderColor: '#fff' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(239,68,68,0.35)' }, { offset: 1, color: 'rgba(239,68,68,0.05)' }]) } },
+            { name: '湿度(%)', type: 'line', yAxisIndex: 1, data: trend.humidity, smooth: true, symbol: 'circle', symbolSize: 10, lineStyle: { width: 4, color: '#0ea5e9' }, itemStyle: { color: '#0ea5e9', borderWidth: 2, borderColor: '#fff' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(14,165,233,0.35)' }, { offset: 1, color: 'rgba(14,165,233,0.05)' }]) } }
+        ]
+    });
+
+    const pm25Range = getAutoRange(trend.pm25, 0.8);
+    if (!pm25Chart) pm25Chart = echarts.init(document.getElementById('pm25Chart'));
+    pm25Chart.setOption({
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#ddd', borderWidth: 1, textStyle: { color: '#333' }, padding: [10, 14] },
+        legend: { data: ['PM2.5'], top: 5, textStyle: { fontSize: 12, color: '#666' } },
+        grid: { left: '8%', right: '8%', bottom: '12%', top: '12%', containLabel: true },
+        xAxis: { type: 'category', data: trend.times, axisLine: { lineStyle: { color: '#ddd' } }, axisLabel: { fontSize: 11, color: '#666', rotate: 40 }, axisTick: { show: false } },
+        yAxis: { type: 'value', name: 'μg/m³', nameTextStyle: { color: '#10b981', fontSize: 11 }, splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } }, axisLine: { show: false }, axisLabel: { fontSize: 11, color: '#666' }, min: pm25Range[0], max: pm25Range[1], interval: 1 },
+        series: [
+            { name: 'PM2.5', type: 'line', data: trend.pm25, smooth: true, symbol: 'circle', symbolSize: 10, lineStyle: { width: 4, color: '#10b981' }, itemStyle: { color: '#10b981', borderWidth: 2, borderColor: '#fff' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(16,185,129,0.35)' }, { offset: 1, color: 'rgba(16,185,129,0.05)' }]) } }
+        ]
+    });
+}
+
+function renderHourlyChart(hourly) {
+    if (!hourlyChart) hourlyChart = echarts.init(document.getElementById('hourlyChart'));
+
+    const labels = hourly.map(h => h.hour + ':00');
+    const tempData = hourly.map(h => h.temperature);
+    const humidityData = hourly.map(h => h.humidity);
+    const pm25Data = hourly.map(h => h.pm25);
+
+    const tempMin = Math.floor(Math.min(...tempData) - 2);
+    const tempMax = Math.ceil(Math.max(...tempData) + 2);
+    const humidityMin = Math.floor(Math.min(...humidityData) - 5);
+    const humidityMax = Math.ceil(Math.max(...humidityData) + 5);
+
+    hourlyChart.setOption({
+        backgroundColor: '#fff',
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#ddd',
+            borderWidth: 1,
+            textStyle: { color: '#333' },
+            padding: [10, 14],
+            axisPointer: { type: 'cross' }
+        },
+        legend: {
+            data: ['温度(°C)', '湿度(%)', 'PM2.5'],
+            top: 10,
+            textStyle: { fontSize: 12, color: '#666' }
+        },
+        grid: { left: '6%', right: '6%', bottom: '8%', top: '15%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: labels,
+            axisLine: { lineStyle: { color: '#ddd' } },
+            axisLabel: { fontSize: 11, color: '#666' },
+            axisTick: { show: false }
+        },
+        yAxis: [
+            {
+                type: 'value',
+                name: '温度/PM2.5',
+                position: 'left',
+                min: Math.min(tempMin, Math.floor(Math.min(...pm25Data) - 5)),
+                max: Math.max(tempMax, Math.ceil(Math.max(...pm25Data) + 5)),
+                splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
+                axisLine: { show: false },
+                axisLabel: { fontSize: 11, color: '#666' }
+            },
+            {
+                type: 'value',
+                name: '湿度(%)',
+                position: 'right',
+                min: humidityMin,
+                max: humidityMax,
+                splitLine: { show: false },
+                axisLine: { show: false },
+                axisLabel: { fontSize: 11, color: '#0ea5e9' }
+            }
+        ],
+        series: [
+            {
+                name: '温度(°C)',
+                type: 'line',
+                yAxisIndex: 0,
+                data: tempData,
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle: { width: 3, color: '#ef4444' },
+                itemStyle: { color: '#ef4444', borderWidth: 2, borderColor: '#fff' }
+            },
+            {
+                name: 'PM2.5',
+                type: 'line',
+                yAxisIndex: 0,
+                data: pm25Data,
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle: { width: 3, color: '#10b981' },
+                itemStyle: { color: '#10b981', borderWidth: 2, borderColor: '#fff' }
+            },
+            {
+                name: '湿度(%)',
+                type: 'bar',
+                yAxisIndex: 1,
+                data: humidityData,
+                itemStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(14,165,233,0.7)' },
+                        { offset: 1, color: 'rgba(14,165,233,0.2)' }
+                    ]),
+                    borderRadius: [3, 3, 0, 0]
+                },
+                barWidth: '40%'
+            }
+        ]
+    });
+}
+
+function renderDailyTable(daily) {
+    const getRiskBadge = (risk) => {
+        const cls = risk === '高风险' ? 'risk-high' : risk === '中风险' ? 'risk-medium' : risk === '低风险' ? 'risk-low' : 'risk-normal';
+        return `<span class="risk-badge ${cls}">${risk}</span>`;
+    };
+
+    let html = '<table><thead><tr><th>日期</th><th>温度(°C)</th><th>湿度(%)</th><th>PM2.5</th><th>预警</th></tr></thead><tbody>';
+    daily.forEach(d => {
+        html += `<tr>
+            <td>${d.date}</td>
+            <td style="color:#ef4444;">${d.temperature_avg}</td>
+            <td style="color:#0ea5e9;">${d.humidity_avg}</td>
+            <td style="color:#10b981;">${d.pm25_avg}</td>
+            <td>${getRiskBadge(d.risk)}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+
+    document.getElementById('dailyTable').innerHTML = html;
+}
+
+function renderAlertList(alerts) {
+    if (!alerts || alerts.length === 0) {
+        document.getElementById('alertList').innerHTML = '<div class="no-data">暂无预警信息</div>';
+        return;
+    }
+
+    let html = '';
+    alerts.forEach(a => {
+        const alertClass = a.level === '高风险' ? 'alert-high' : a.level === '中风险' ? 'alert-medium' : a.level === '低风险' ? 'alert-low' : 'alert-normal';
+        html += `<div class="alert-item ${alertClass}">
+            <div><strong>${a.level}</strong>: ${a.message}</div>
+            <div class="alert-time">${a.time} | 温度: ${a.temperature}°C | 湿度: ${a.humidity}%</div>
+        </div>`;
+    });
+
+    document.getElementById('alertList').innerHTML = html;
+}
+
+function renderTopnList(topn) {
+    if (!topn || topn.length === 0) {
+        document.getElementById('topnList').innerHTML = '<div class="no-data">暂无数据</div>';
+        return;
+    }
+
+    let html = '';
+    topn.slice(0, 5).forEach((t, i) => {
+        html += `<div class="rank-item">
+            <span style="display:flex; align-items:center; gap:8px;">
+                <span style="width:20px; height:20px; border-radius:50%; background:${i < 3 ? '#f59e0b' : '#9ca3af'}; color:white; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold;">${t.rank}</span>
+                ${t.date}
+            </span>
+            <span class="topn-score">${t.risk_score}</span>
+        </div>`;
+    });
+
+    document.getElementById('topnList').innerHTML = html;
+}
+
+function showNoData() {
+    const msg = '<div class="no-data">暂无数据，请先执行气象分析</div>';
+    document.getElementById('dailyTable').innerHTML = msg;
+    document.getElementById('alertList').innerHTML = msg;
+    document.getElementById('topnList').innerHTML = msg;
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+
+    event.target.classList.add('active');
+
+    if (tab === 'daily') {
+        document.getElementById('daily-tab').style.display = 'block';
+    } else if (tab === 'risk') {
+        document.getElementById('risk-tab').style.display = 'block';
+    } else if (tab === 'health') {
+        document.getElementById('health-tab').style.display = 'block';
+        loadHealthSummary();
+    }
+}
+
+function applyFilter() {
+    loadOverview();
+}
+
+function resetFilter() {
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    loadOverview();
+}
+
+async function runAnalysis() {
+    const btn = document.getElementById('mrBtn');
+    btn.disabled = true;
+    btn.innerText = '分析中...';
+
+    try {
+        const res = await fetch(`${API_BASE}/run-analysis/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+
+        if (data.code === 0) {
+            alert('气象分析完成，数据已更新');
+            loadOverview();
+        } else {
+            alert('分析执行失败:\n' + (data.message || '未知错误'));
+        }
+    } catch (error) {
+        alert('请求失败:\n' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = '执行气象分析';
+    }
+}
+
+window.addEventListener('resize', () => {
+    tempHumidityChart && tempHumidityChart.resize();
+    pm25Chart && pm25Chart.resize();
+    hourlyChart && hourlyChart.resize();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadOverview();
+});
+</script>
+{% endblock %}

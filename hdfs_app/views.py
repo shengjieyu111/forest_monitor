@@ -5,11 +5,10 @@ from django.conf import settings
 from django.shortcuts import render
 from django.utils import timezone
 from visitor.models import VisitorRecord
-from visitor.services import import_visitor_records_for_date
 
 from .services import (
     HDFS_BASE_DIR,
-    HDFS_HISTORY_FILE,
+    HDFS_VISITORS_HISTORY_FILE,
     hdfs_delete_by_date,
     hdfs_list,
     hdfs_preview_by_date,
@@ -87,12 +86,8 @@ def hdfs_index(request):
                 local_path = _save_uploaded_csv(uploaded_file, selected_date)
                 result = hdfs_upload_by_date(local_path, selected_date)
                 if result["success"]:
-                    import_result = import_visitor_records_for_date(
-                        local_path, selected_date
-                    )
                     message = (
                         f"已上传 {selected_date} 游客数据到 HDFS 日期分区，"
-                        f"并同步 {import_result.imported_rows} 条记录到 MySQL。"
                     )
                     message_type = "success"
                 else:
@@ -168,12 +163,13 @@ def hdfs_index(request):
         request,
         "hdfs/index.html",
         {
+            "page": "hdfs",
             "message": message,
             "message_type": message_type,
             "file_list": file_list,
             "preview_text": preview_text,
             "selected_date": selected_date,
             "hdfs_directory": HDFS_BASE_DIR,
-            "hdfs_history_file": HDFS_HISTORY_FILE,
+            "hdfs_history_file": HDFS_VISITORS_HISTORY_FILE,
         },
     )

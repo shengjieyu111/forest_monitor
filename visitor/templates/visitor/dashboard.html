@@ -1,11 +1,9 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>游客流量监测中心</title>
+{% extends "forest_monitor/base.html" %}
+
+{% block title %}游客流量监测中心{% endblock %}
+
+{% block css %}
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     :root {
       --forest-950: #142b22;
@@ -39,49 +37,6 @@
       letter-spacing: 0;
     }
     button { font: inherit; }
-    .app { min-height: 100vh; display: grid; grid-template-columns: 208px minmax(0, 1fr); }
-    .sidebar {
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      padding: 22px 14px;
-      border-right: 1px solid #dce4de;
-      background: var(--cream);
-    }
-    .brand { display: flex; align-items: center; gap: 13px; padding: 2px 8px 26px; }
-    .brand-mark {
-      width: 48px;
-      height: 48px;
-      display: grid;
-      flex: 0 0 auto;
-      place-items: center;
-      color: #fff;
-      border-radius: 10px;
-      background: var(--forest-800);
-      box-shadow: 0 7px 18px rgba(36, 80, 63, .2);
-    }
-    .brand-mark svg { width: 25px; height: 25px; }
-    .brand strong { display: block; color: var(--forest-950); font-size: 19px; font-weight: 800; white-space: nowrap; }
-    .brand span { display: block; margin-top: 4px; color: #73837a; font-size: 12px; font-weight: 600; white-space: nowrap; }
-    .nav-label { padding: 18px 11px 9px; color: #7f8d85; font-size: 15px; font-weight: 700; }
-    .nav { display: grid; gap: 4px; }
-    .nav-item {
-      min-height: 52px;
-      display: flex;
-      align-items: center;
-      gap: 11px;
-      padding: 0 12px;
-      color: #68756e;
-      border-radius: 8px;
-      text-decoration: none;
-      font-size: 18px;
-      font-weight: 600;
-      transition: background .18s ease, color .18s ease;
-    }
-    .nav-item:hover { color: var(--forest-800); background: #f0f4f1; }
-    .nav-item.active { color: var(--forest-900); background: #e3eee8; font-weight: 700; }
-    .nav-item svg { width: 21px; height: 21px; }
-    .main { min-width: 0; }
     .run-button {
       height: 44px;
       display: inline-flex;
@@ -105,30 +60,24 @@
     .run-button:disabled { opacity: .68; cursor: wait; transform: none; }
     .run-button.loading svg { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .content { width: 100%; max-width: none; margin: 0; padding: 22px 24px 44px; }
-    .page-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
-    .page-head-actions { display: flex; align-items: center; gap: 12px; }
-    .eyebrow { margin-bottom: 7px; color: var(--forest-600); font-size: 14px; font-weight: 800; }
-    h1 { margin: 0; color: var(--forest-950); font-size: 42px; font-weight: 800; line-height: 1.15; }
-    .sync-note { min-height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 15px; color: #1f7653; border: 1px solid #cce5d8; border-radius: 9px; background: #e8f4ee; font-size: 16px; font-weight: 800; }
-    .sync-note svg { width: 17px; height: 17px; }
+    .content { width: 100%; max-width: none; margin: 0; padding: 0; }
     .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
     .metric {
-      height: 128px;
+      height: 100px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 43px;
-      gap: 12px;
-      padding: 22px;
+      grid-template-columns: minmax(0, 1fr) 36px;
+      gap: 10px;
+      padding: 16px;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 12px;
       background: var(--card);
       box-shadow: var(--shadow);
     }
-    .metric-label { color: #53645b; font-size: 17px; font-weight: 800; }
-    .metric-value { display: block; margin-top: 16px; color: var(--forest-950); font-size: 39px; font-weight: 800; line-height: 1; }
+    .metric-label { color: #53645b; font-size: 15px; font-weight: 700; }
+    .metric-value { display: block; margin-top: 8px; color: var(--forest-950); font-size: 28px; font-weight: 800; line-height: 1; }
     .metric-foot { display: none; }
-    .metric-icon { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 11px; }
-    .metric-icon svg { width: 19px; height: 19px; }
+    .metric-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; }
+    .metric-icon svg { width: 16px; height: 16px; }
     .metric-icon.green { color: var(--forest-700); background: #e6f2ec; }
     .metric-icon.blue { color: var(--blue); background: #e8f1f3; }
     .metric-icon.orange { color: var(--orange); background: #faefd9; }
@@ -139,15 +88,15 @@
     .panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); }
     .daily-panel { height: 100%; display: flex; flex-direction: column; }
     .daily-panel .panel-head { flex: 0 0 auto; }
-    .daily-panel #daily-chart { height: auto; min-height: 420px; flex: 1 1 auto; }
+    .daily-panel #daily-chart { height: auto; min-height: 260px; flex: 1 1 auto; }
     .panel-head { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 18px; border-bottom: 1px solid #edf1ee; }
     .panel-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .panel-title > svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--forest-600); }
-    h2 { margin: 0; color: var(--forest-950); font-size: 21px; font-weight: 800; }
-    .panel-subtitle { margin-top: 5px; color: #6f7f76; font-size: 15px; font-weight: 600; }
-    .panel-tag { padding: 6px 10px; color: #216648; border-radius: 6px; background: var(--forest-100); font-size: 13px; font-weight: 700; white-space: nowrap; }
-    .chart { width: 100%; height: 420px; }
-    .chart.compact { height: 310px; }
+    h2 { margin: 0; color: var(--forest-950); font-size: 18px; font-weight: 700; }
+    .panel-subtitle { margin-top: 4px; color: #6f7f76; font-size: 13px; font-weight: 600; }
+    .panel-tag { padding: 5px 8px; color: #216648; border-radius: 5px; background: var(--forest-100); font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .chart { width: 100%; height: 320px; }
+    .chart.compact { height: 220px; }
     .insight {
       min-height: 130px;
       position: relative;
@@ -163,9 +112,9 @@
       box-shadow: 0 12px 28px rgba(25, 56, 44, .16);
     }
     .insight::after { content: ""; position: absolute; right: -35px; bottom: -55px; width: 150px; height: 150px; border: 24px solid rgba(255,255,255,.055); border-radius: 50%; }
-    .insight-label { color: #c7e1d5; font-size: 16px; font-weight: 800; }
-    .insight strong { display: block; margin: 10px 0 8px; font-size: 35px; font-weight: 800; }
-    .insight p { margin: 0; color: #e3eee9; font-size: 17px; font-weight: 600; line-height: 1.55; }
+    .insight-label { color: #c7e1d5; font-size: 14px; font-weight: 700; }
+    .insight strong { display: block; margin: 8px 0 6px; font-size: 28px; font-weight: 800; }
+    .insight p { margin: 0; color: #e3eee9; font-size: 15px; font-weight: 600; line-height: 1.5; }
     .insight-icon { width: 52px; height: 52px; z-index: 1; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.14); border-radius: 13px; background: rgba(255,255,255,.08); }
     .insight-icon svg { width: 27px; height: 27px; color: #8ed5b6; }
     .warning-card {
@@ -188,11 +137,11 @@
     .warning-card.none { --warning-color: #7b8781; --warning-soft: #f0f2f1; }
     .warning-top { display: flex; align-items: center; gap: 8px; }
     .warning-top svg { width: 16px; height: 16px; color: var(--warning-color); }
-    .warning-title { color: #4f5f56; font-size: 16px; font-weight: 800; }
-    .warning-level { display: block; margin-top: 9px; color: var(--warning-color); font-size: 29px; font-weight: 800; }
-    .warning-metrics { display: grid; gap: 7px; margin-top: 10px; color: #45564d; font-size: 17px; font-weight: 600; }
+    .warning-title { color: #4f5f56; font-size: 14px; font-weight: 700; }
+    .warning-level { display: block; margin-top: 7px; color: var(--warning-color); font-size: 22px; font-weight: 800; }
+    .warning-metrics { display: grid; gap: 6px; margin-top: 8px; color: #45564d; font-size: 15px; font-weight: 600; }
     .warning-metrics strong { color: #26372f; }
-    .warning-advice { margin: 12px 0 0; color: #4f6057; font-size: 17px; font-weight: 600; line-height: 1.8; }
+    .warning-advice { margin: 10px 0 0; color: #4f6057; font-size: 15px; font-weight: 600; line-height: 1.6; }
     .warning-badge {
       min-width: 54px;
       height: 28px;
@@ -217,7 +166,6 @@
     .gate-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--forest-600); }
     .empty, .loading { display: grid; place-items: center; height: 100%; min-height: 90px; color: #68786f; font-size: 15px; font-weight: 600; }
     @media (max-width: 1120px) {
-      .app { grid-template-columns: 74px minmax(0, 1fr); }
       .sidebar { padding-inline: 10px; }
       .brand { justify-content: center; padding-inline: 0; }
       .brand-copy, .nav-label, .nav-item span { display: none; }
@@ -228,12 +176,7 @@
       .hourly-panel { grid-column: 1 / -1; }
     }
     @media (max-width: 760px) {
-      .app { display: block; }
-      .sidebar { display: none; }
       .content { padding: 16px 14px 28px; }
-      .page-head { align-items: flex-start; flex-direction: column; gap: 14px; }
-      .page-head-actions { width: 100%; justify-content: space-between; }
-      h1 { font-size: 32px; }
       .metrics, .side-stack { grid-template-columns: 1fr; }
       .metric { height: 116px; }
       .chart { height: 340px; }
@@ -241,295 +184,270 @@
       .run-button { min-width: 142px; justify-content: center; }
     }
   </style>
-</head>
-<body>
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark"><i data-lucide="trees"></i></div>
-        <div class="brand-copy"><strong>鹫峰林场监测</strong><span>JIUFENG FOREST</span></div>
+{% endblock %}
+
+{% block page_title %}游客流量监测{% endblock %}
+
+{% block content %}
+
+  <section class="metrics" style="margin-top: 12px;">
+    <article class="metric">
+      <div><span class="metric-label">累计游客</span><strong class="metric-value" id="total-count">--</strong></div>
+      <div class="metric-icon green"><i data-lucide="users-round"></i></div>
+    </article>
+    <article class="metric">
+      <div><span class="metric-label">统计天数</span><strong class="metric-value" id="day-count">--</strong></div>
+      <div class="metric-icon blue"><i data-lucide="calendar-range"></i></div>
+    </article>
+    <article class="metric">
+      <div><span class="metric-label">日均游客</span><strong class="metric-value" id="daily-average">--</strong></div>
+      <div class="metric-icon orange"><i data-lucide="activity"></i></div>
+    </article>
+    <article class="metric">
+      <div><span class="metric-label">高峰时段</span><strong class="metric-value" id="peak-hour">--</strong></div>
+      <div class="metric-icon red"><i data-lucide="clock-3"></i></div>
+    </article>
+  </section>
+
+  <section class="dashboard-grid">
+    <article class="panel daily-panel">
+      <div class="panel-head">
+        <div class="panel-title"><i data-lucide="trending-up"></i><div><h2>每日游客流量趋势</h2><div class="panel-subtitle">按天汇总</div></div></div>
+        <span class="panel-tag">每日汇总</span>
       </div>
-      <div class="nav-label">智能监测</div>
-      <nav class="nav">
-        <a class="nav-item" href="#"><i data-lucide="layout-dashboard"></i><span>综合概览</span></a>
-        <a class="nav-item active" href="/visitor/"><i data-lucide="users-round"></i><span>游客流量</span></a>
-        <a class="nav-item" href="{% url 'hdfs_app:index' %}"><i data-lucide="database"></i><span>HDFS 管理</span></a>
-      </nav>
-    </aside>
+      <div id="daily-chart" class="chart"><div class="loading">正在读取每日统计结果...</div></div>
+    </article>
 
-    <main class="main">
-      <div class="content">
-        <section class="page-head">
-          <div>
-            <div class="eyebrow">BEIJING FORESTRY UNIVERSITY</div>
-            <h1>游客流量监测</h1>
+    <div class="side-stack">
+      <article class="insight">
+        <div><span class="insight-label">客流峰值洞察</span><strong id="peak-insight">--</strong><p id="peak-copy">正在计算最高客流时段</p></div>
+        <div class="insight-icon"><i data-lucide="zap"></i></div>
+      </article>
+      <article class="warning-card none" id="peak-warning-card">
+        <div>
+          <div class="warning-top"><i data-lucide="shield-alert"></i><span class="warning-title">高峰客流预警</span></div>
+          <strong class="warning-level" id="warning-level-text">正在分析...</strong>
+          <div class="warning-metrics">
+            <span>峰值时段 <strong id="warning-peak-hour">--</strong></span>
+            <span>日均客流 <strong id="warning-peak-average">--</strong></span>
           </div>
-          <div class="page-head-actions">
-            <div class="sync-note"><i data-lucide="circle-check-big"></i><span>统计数据已同步</span></div>
-            <button class="run-button" id="run-mr-button" onclick="runMapReduceJobs()"><i data-lucide="play"></i><span>运行 MapReduce</span></button>
-          </div>
-        </section>
+          <p class="warning-advice" id="warning-advice">正在根据客流统计结果评估风险等级。</p>
+        </div>
+        <span class="warning-badge" id="warning-badge">分析中</span>
+      </article>
+      <article class="panel hourly-panel">
+        <div class="panel-head">
+          <div class="panel-title"><i data-lucide="chart-column"></i><div><h2>小时客流分布</h2><div class="panel-subtitle">红色为峰值时段</div></div></div>
+        </div>
+        <div id="hourly-chart" class="chart compact"><div class="loading">正在读取小时统计结果...</div></div>
+      </article>
+    </div>
+  </section>
 
-        <section class="metrics">
-          <article class="metric">
-            <div><span class="metric-label">累计游客</span><strong class="metric-value" id="total-count">--</strong></div>
-            <div class="metric-icon green"><i data-lucide="users-round"></i></div>
-          </article>
-          <article class="metric">
-            <div><span class="metric-label">统计天数</span><strong class="metric-value" id="day-count">--</strong></div>
-            <div class="metric-icon blue"><i data-lucide="calendar-range"></i></div>
-          </article>
-          <article class="metric">
-            <div><span class="metric-label">日均游客</span><strong class="metric-value" id="daily-average">--</strong></div>
-            <div class="metric-icon orange"><i data-lucide="activity"></i></div>
-          </article>
-          <article class="metric">
-            <div><span class="metric-label">高峰时段</span><strong class="metric-value" id="peak-hour">--</strong></div>
-            <div class="metric-icon red"><i data-lucide="clock-3"></i></div>
-          </article>
-        </section>
-
-        <section class="dashboard-grid">
-          <article class="panel daily-panel">
-            <div class="panel-head">
-              <div class="panel-title"><i data-lucide="trending-up"></i><div><h2>每日游客流量趋势</h2><div class="panel-subtitle">按天汇总</div></div></div>
-              <span class="panel-tag">每日汇总</span>
-            </div>
-            <div id="daily-chart" class="chart"><div class="loading">正在读取每日统计结果...</div></div>
-          </article>
-
-          <div class="side-stack">
-            <article class="insight">
-              <div><span class="insight-label">客流峰值洞察</span><strong id="peak-insight">--</strong><p id="peak-copy">正在计算最高客流时段</p></div>
-              <div class="insight-icon"><i data-lucide="zap"></i></div>
-            </article>
-            <article class="warning-card none" id="peak-warning-card">
-              <div>
-                <div class="warning-top"><i data-lucide="shield-alert"></i><span class="warning-title">高峰客流预警</span></div>
-                <strong class="warning-level" id="warning-level-text">正在分析...</strong>
-                <div class="warning-metrics">
-                  <span>峰值时段 <strong id="warning-peak-hour">--</strong></span>
-                  <span>日均客流 <strong id="warning-peak-average">--</strong></span>
-                </div>
-                <p class="warning-advice" id="warning-advice">正在根据客流统计结果评估风险等级。</p>
-              </div>
-              <span class="warning-badge" id="warning-badge">分析中</span>
-            </article>
-            <article class="panel hourly-panel">
-              <div class="panel-head">
-                <div class="panel-title"><i data-lucide="chart-column"></i><div><h2>小时客流分布</h2><div class="panel-subtitle">红色为峰值时段</div></div></div>
-              </div>
-              <div id="hourly-chart" class="chart compact"><div class="loading">正在读取小时统计结果...</div></div>
-            </article>
-          </div>
-        </section>
-
-        <section class="bottom-grid">
-          <article class="panel">
-            <div class="panel-head">
-              <div class="panel-title"><i data-lucide="pie-chart"></i><div><h2>入口游客占比</h2><div class="panel-subtitle">按入口汇总</div></div></div>
-              <span class="panel-tag">入口汇总</span>
-            </div>
-            <div id="gate-chart" class="chart compact"><div class="loading">正在读取入口统计结果...</div></div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-head">
-              <div class="panel-title"><i data-lucide="list-filter"></i><div><h2>最近游客记录</h2><div class="panel-subtitle">最新 12 条</div></div></div>
-              <span class="panel-tag">最新 12 条</span>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>访问时间</th><th>入口</th><th>游客数（人）</th><th>天气</th><th>票种</th></tr></thead>
-                <tbody id="record-body"><tr><td colspan="5"><div class="empty">正在读取记录...</div></td></tr></tbody>
-              </table>
-            </div>
-          </article>
-        </section>
+  <section class="bottom-grid">
+    <article class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i data-lucide="pie-chart"></i><div><h2>入口游客占比</h2><div class="panel-subtitle">按入口汇总</div></div></div>
+        <span class="panel-tag">入口汇总</span>
       </div>
-    </main>
-  </div>
+      <div id="gate-chart" class="chart compact"><div class="loading">正在读取入口统计结果...</div></div>
+    </article>
 
-  <script>
-    const numberFormat = new Intl.NumberFormat("zh-CN");
-    const charts = [];
-    const tooltipStyle = {
-      backgroundColor: "rgba(20, 43, 34, .94)",
-      borderColor: "transparent",
-      borderWidth: 0,
-      padding: [9, 12],
-      textStyle: { color: "#fff", fontSize: 14, fontWeight: 600 }
-    };
+    <article class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i data-lucide="list-filter"></i><div><h2>最近游客记录</h2><div class="panel-subtitle">最新 12 条</div></div></div>
+        <span class="panel-tag">最新 12 条</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>访问时间</th><th>入口</th><th>游客数（人）</th><th>天气</th><th>票种</th></tr></thead>
+          <tbody id="record-body"><tr><td colspan="5"><div class="empty">正在读取记录...</div></td></tr></tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+{% endblock %}
 
-    async function getApi(url) {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`接口请求失败：${response.status}`);
-      const result = await response.json();
-      if (result.code !== 0) throw new Error(result.message || "接口返回错误");
-      return result.data;
+{% block js %}
+<script>
+  const numberFormat = new Intl.NumberFormat("zh-CN");
+  const charts = [];
+  const tooltipStyle = {
+    backgroundColor: "rgba(20, 43, 34, .94)",
+    borderColor: "transparent",
+    borderWidth: 0,
+    padding: [9, 12],
+    textStyle: { color: "#fff", fontSize: 14, fontWeight: 600 }
+  };
+
+  async function getApi(url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`接口请求失败：${response.status}`);
+    const result = await response.json();
+    if (result.code !== 0) throw new Error(result.message || "接口返回错误");
+    return result.data;
+  }
+
+  function createChart(elementId, option) {
+    const chart = echarts.init(document.getElementById(elementId));
+    chart.setOption(option);
+    charts.push(chart);
+    return chart;
+  }
+
+  function showChartError(elementId, error) {
+    document.getElementById(elementId).innerHTML = `<div class="loading">${error.message}</div>`;
+  }
+
+  async function loadDailyChart() {
+    try {
+      const data = await getApi("{% url 'visitor:daily-stat-api' %}");
+      const total = data.values.reduce((sum, value) => sum + value, 0);
+      const average = data.labels.length ? Math.round(total / data.labels.length) : 0;
+      document.getElementById("total-count").textContent = `${numberFormat.format(total)} 人`;
+      document.getElementById("day-count").textContent = `${data.labels.length} 天`;
+      document.getElementById("daily-average").textContent = `${numberFormat.format(average)} 人`;
+      createChart("daily-chart", {
+        animationDuration: 650,
+        color: ["#2d6a52"],
+        tooltip: { ...tooltipStyle, trigger: "axis", valueFormatter: value => `${numberFormat.format(value)} 人` },
+        grid: { left: 74, right: 28, top: 38, bottom: 76 },
+        xAxis: {
+          type: "category", data: data.labels, boundaryGap: false,
+          axisTick: { show: false },
+          axisLine: { lineStyle: { color: "#cfd9d3" } },
+          axisLabel: { color: "#596a61", fontSize: 13, fontWeight: 600 }
+        },
+        yAxis: {
+          type: "value", name: "人",
+          nameTextStyle: { color: "#596a61", fontSize: 14, fontWeight: 700, padding: [0, 0, 0, -28] },
+          axisLabel: { color: "#596a61", fontSize: 13, fontWeight: 600, formatter: value => numberFormat.format(value) },
+          splitLine: { lineStyle: { color: "#e8eeea", type: "dashed" } },
+          minInterval: 1000,
+        },
+        dataZoom: [
+          { type: "inside", start: 84, end: 100 },
+          { type: "slider", start: 84, end: 100, height: 20, bottom: 16, borderColor: "#dbe5df", fillerColor: "rgba(45,106,82,.16)", handleStyle: { color: "#2d6a52" }, textStyle: { color: "#596a61", fontSize: 11 } }
+        ],
+        series: [{
+          name: "每日客流", type: "line", data: data.values, showSymbol: false, smooth: .25,
+          lineStyle: { width: 2.5, color: "#2d6a52" },
+          areaStyle: { color: "rgba(57,132,102,.13)" }
+        }]
+      });
+    } catch (error) { showChartError("daily-chart", error); }
+  }
+
+  async function loadHourlyChart() {
+    try {
+      const data = await getApi("{% url 'visitor:hourly-stat-api' %}");
+      document.getElementById("peak-hour").textContent = data.peak ? data.peak.hour : "暂无";
+      document.getElementById("peak-insight").textContent = data.peak ? `${data.peak.hour} 达到峰值` : "暂无数据";
+      document.getElementById("peak-copy").textContent = data.peak ? `累计客流 ${numberFormat.format(data.peak.total_count)} 人，请关注游客疏导` : "等待统计结果";
+      createChart("hourly-chart", {
+        animationDuration: 650,
+        tooltip: { ...tooltipStyle, trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: value => `${numberFormat.format(value)} 人` },
+        grid: { left: 70, right: 18, top: 25, bottom: 50 },
+        xAxis: { type: "category", data: data.labels, axisTick: { show: false }, axisLine: { lineStyle: { color: "#cfd9d3" } }, axisLabel: { color: "#596a61", fontSize: 12, fontWeight: 600, rotate: 34 } },
+        yAxis: { type: "value", axisLabel: { color: "#596a61", fontSize: 12, fontWeight: 600, formatter: value => numberFormat.format(value) }, splitLine: { lineStyle: { color: "#e8eeea", type: "dashed" } } },
+        series: [{
+          type: "bar", data: data.values, barMaxWidth: 24,
+          itemStyle: { borderRadius: [4, 4, 0, 0], color: params => data.peak && data.labels[params.dataIndex] === data.peak.hour ? "#d4574c" : "#3c7f8e" }
+        }]
+      });
+    } catch (error) { showChartError("hourly-chart", error); }
+  }
+
+  async function loadGateChart() {
+    try {
+      const data = await getApi("{% url 'visitor:gate-stat-api' %}");
+      createChart("gate-chart", {
+        color: ["#2d6a52", "#477fb3", "#db9a38"],
+        tooltip: { ...tooltipStyle, trigger: "item", formatter: params => `${params.name}<br>${numberFormat.format(params.value)} 人 · ${params.percent}%` },
+        legend: { bottom: 13, left: "center", itemWidth: 11, itemHeight: 11, icon: "circle", textStyle: { color: "#53645b", fontSize: 13, fontWeight: 600 } },
+        series: [{
+          type: "pie", radius: ["47%", "69%"], center: ["50%", "43%"],
+          label: { color: "#35483e", fontSize: 13, fontWeight: 700, formatter: "{b}\n{d}%" },
+          labelLine: { length: 12, length2: 7, lineStyle: { color: "#b7c2bc" } },
+          itemStyle: { borderColor: "#fffefb", borderWidth: 3 }, data
+        }]
+      });
+    } catch (error) { showChartError("gate-chart", error); }
+  }
+
+  async function loadPeakWarning() {
+    const card = document.getElementById("peak-warning-card");
+    try {
+      const data = await getApi("{% url 'visitor:peak-warning-api' %}");
+      card.className = `warning-card ${data.level}`;
+      document.getElementById("warning-level-text").textContent = data.level_text;
+      document.getElementById("warning-peak-hour").textContent = data.peak_hour || "暂无";
+      document.getElementById("warning-peak-average").textContent = `${numberFormat.format(data.peak_avg_count)} 人`;
+      document.getElementById("warning-advice").textContent = data.advice;
+      document.getElementById("warning-badge").textContent = data.level_text;
+    } catch (error) {
+      card.className = "warning-card none";
+      document.getElementById("warning-level-text").textContent = "预警加载失败";
+      document.getElementById("warning-peak-hour").textContent = "--";
+      document.getElementById("warning-peak-average").textContent = "--";
+      document.getElementById("warning-advice").textContent = error.message;
+      document.getElementById("warning-badge").textContent = "异常";
     }
+  }
 
-    function createChart(elementId, option) {
-      const chart = echarts.init(document.getElementById(elementId));
-      chart.setOption(option);
-      charts.push(chart);
-      return chart;
-    }
-
-    function showChartError(elementId, error) {
-      document.getElementById(elementId).innerHTML = `<div class="loading">${error.message}</div>`;
-    }
-
-    async function loadDailyChart() {
-      try {
-        const data = await getApi("{% url 'visitor:daily-stat-api' %}");
-        const total = data.values.reduce((sum, value) => sum + value, 0);
-        const average = data.labels.length ? Math.round(total / data.labels.length) : 0;
-        document.getElementById("total-count").textContent = `${numberFormat.format(total)} 人`;
-        document.getElementById("day-count").textContent = `${data.labels.length} 天`;
-        document.getElementById("daily-average").textContent = `${numberFormat.format(average)} 人`;
-        createChart("daily-chart", {
-          animationDuration: 650,
-          color: ["#2d6a52"],
-          tooltip: { ...tooltipStyle, trigger: "axis", valueFormatter: value => `${numberFormat.format(value)} 人` },
-          grid: { left: 74, right: 28, top: 38, bottom: 76 },
-          xAxis: {
-            type: "category", data: data.labels, boundaryGap: false,
-            axisTick: { show: false },
-            axisLine: { lineStyle: { color: "#cfd9d3" } },
-            axisLabel: { color: "#596a61", fontSize: 13, fontWeight: 600 }
-          },
-          yAxis: {
-            type: "value", name: "人",
-            nameTextStyle: { color: "#596a61", fontSize: 14, fontWeight: 700, padding: [0, 0, 0, -28] },
-            axisLabel: { color: "#596a61", fontSize: 13, fontWeight: 600, formatter: value => numberFormat.format(value) },
-            splitLine: { lineStyle: { color: "#e8eeea", type: "dashed" } }
-          },
-          dataZoom: [
-            { type: "inside", start: 84, end: 100 },
-            { type: "slider", start: 84, end: 100, height: 20, bottom: 16, borderColor: "#dbe5df", fillerColor: "rgba(45,106,82,.16)", handleStyle: { color: "#2d6a52" }, textStyle: { color: "#596a61", fontSize: 11 } }
-          ],
-          series: [{
-            name: "每日客流", type: "line", data: data.values, showSymbol: false, smooth: .25,
-            lineStyle: { width: 2.5, color: "#2d6a52" },
-            areaStyle: { color: "rgba(57,132,102,.13)" }
-          }]
-        });
-      } catch (error) { showChartError("daily-chart", error); }
-    }
-
-    async function loadHourlyChart() {
-      try {
-        const data = await getApi("{% url 'visitor:hourly-stat-api' %}");
-        document.getElementById("peak-hour").textContent = data.peak ? data.peak.hour : "暂无";
-        document.getElementById("peak-insight").textContent = data.peak ? `${data.peak.hour} 达到峰值` : "暂无数据";
-        document.getElementById("peak-copy").textContent = data.peak ? `累计客流 ${numberFormat.format(data.peak.total_count)} 人，请关注游客疏导` : "等待统计结果";
-        createChart("hourly-chart", {
-          animationDuration: 650,
-          tooltip: { ...tooltipStyle, trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: value => `${numberFormat.format(value)} 人` },
-          grid: { left: 70, right: 18, top: 25, bottom: 50 },
-          xAxis: { type: "category", data: data.labels, axisTick: { show: false }, axisLine: { lineStyle: { color: "#cfd9d3" } }, axisLabel: { color: "#596a61", fontSize: 12, fontWeight: 600, rotate: 34 } },
-          yAxis: { type: "value", axisLabel: { color: "#596a61", fontSize: 12, fontWeight: 600, formatter: value => numberFormat.format(value) }, splitLine: { lineStyle: { color: "#e8eeea", type: "dashed" } } },
-          series: [{
-            type: "bar", data: data.values, barMaxWidth: 24,
-            itemStyle: { borderRadius: [4, 4, 0, 0], color: params => data.peak && data.labels[params.dataIndex] === data.peak.hour ? "#d4574c" : "#3c7f8e" }
-          }]
-        });
-      } catch (error) { showChartError("hourly-chart", error); }
-    }
-
-    async function loadGateChart() {
-      try {
-        const data = await getApi("{% url 'visitor:gate-stat-api' %}");
-        createChart("gate-chart", {
-          color: ["#2d6a52", "#477fb3", "#db9a38"],
-          tooltip: { ...tooltipStyle, trigger: "item", formatter: params => `${params.name}<br>${numberFormat.format(params.value)} 人 · ${params.percent}%` },
-          legend: { bottom: 13, left: "center", itemWidth: 11, itemHeight: 11, icon: "circle", textStyle: { color: "#53645b", fontSize: 13, fontWeight: 600 } },
-          series: [{
-            type: "pie", radius: ["47%", "69%"], center: ["50%", "43%"],
-            label: { color: "#35483e", fontSize: 13, fontWeight: 700, formatter: "{b}\n{d}%" },
-            labelLine: { length: 12, length2: 7, lineStyle: { color: "#b7c2bc" } },
-            itemStyle: { borderColor: "#fffefb", borderWidth: 3 }, data
-          }]
-        });
-      } catch (error) { showChartError("gate-chart", error); }
-    }
-
-    async function loadPeakWarning() {
-      const card = document.getElementById("peak-warning-card");
-      try {
-        const data = await getApi("{% url 'visitor:peak-warning-api' %}");
-        card.className = `warning-card ${data.level}`;
-        document.getElementById("warning-level-text").textContent = data.level_text;
-        document.getElementById("warning-peak-hour").textContent = data.peak_hour || "暂无";
-        document.getElementById("warning-peak-average").textContent = `${numberFormat.format(data.peak_avg_count)} 人`;
-        document.getElementById("warning-advice").textContent = data.advice;
-        document.getElementById("warning-badge").textContent = data.level_text;
-      } catch (error) {
-        card.className = "warning-card none";
-        document.getElementById("warning-level-text").textContent = "预警加载失败";
-        document.getElementById("warning-peak-hour").textContent = "--";
-        document.getElementById("warning-peak-average").textContent = "--";
-        document.getElementById("warning-advice").textContent = error.message;
-        document.getElementById("warning-badge").textContent = "异常";
+  async function loadRecords() {
+    const body = document.getElementById("record-body");
+    try {
+      const data = await getApi("{% url 'visitor:record-list-api' %}?page=1&page_size=12");
+      if (!data.items.length) {
+        body.innerHTML = '<tr><td colspan="5"><div class="empty">visitor_record 表暂无数据</div></td></tr>';
+        return;
       }
+      body.innerHTML = data.items.map(item => `
+        <tr><td>${item.visit_time}</td><td><span class="gate-pill">${item.gate}</span></td><td>${item.visitor_count}</td><td>${item.weather}</td><td>${item.ticket_type}</td></tr>
+      `).join("");
+    } catch (error) {
+      body.innerHTML = `<tr><td colspan="5"><div class="empty">${error.message}</div></td></tr>`;
     }
+  }
 
-    async function loadRecords() {
-      const body = document.getElementById("record-body");
-      try {
-        const data = await getApi("{% url 'visitor:record-list-api' %}?page=1&page_size=12");
-        if (!data.items.length) {
-          body.innerHTML = '<tr><td colspan="5"><div class="empty">visitor_record 表暂无数据</div></td></tr>';
-          return;
-        }
-        body.innerHTML = data.items.map(item => `
-          <tr><td>${item.visit_time}</td><td><span class="gate-pill">${item.gate}</span></td><td>${item.visitor_count}</td><td>${item.weather}</td><td>${item.ticket_type}</td></tr>
-        `).join("");
-      } catch (error) {
-        body.innerHTML = `<tr><td colspan="5"><div class="empty">${error.message}</div></td></tr>`;
-      }
-    }
-
-    async function runMapReduceJobs() {
-      if (!window.confirm("确认重新运行三个 MapReduce 统计作业吗？")) return;
-      const button = document.getElementById("run-mr-button");
-      const label = button.querySelector("span");
-      const icon = button.querySelector("svg");
-      button.disabled = true;
-      button.classList.add("loading");
-      label.textContent = "MapReduce 正在运行，请稍候...";
-      if (icon) icon.setAttribute("data-lucide", "loader-circle");
-      if (window.lucide) window.lucide.createIcons();
-      try {
-        const response = await fetch("{% url 'visitor:run-mr-import-api' %}", {
-          method: "POST",
-          headers: { "X-CSRFToken": "{{ csrf_token }}" }
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
-          throw new Error(result.message || "MapReduce 作业执行失败，请检查 Hadoop 服务状态。");
-        }
-        window.alert("MapReduce 作业执行完成，统计结果已同步至 MySQL。");
-        window.location.reload();
-      } catch (error) {
-        window.alert(`MapReduce 作业执行失败：${error.message}`);
-      } finally {
-        button.disabled = false;
-        button.classList.remove("loading");
-        button.innerHTML = '<i data-lucide="play"></i><span>运行 MapReduce</span>';
-        if (window.lucide) window.lucide.createIcons();
-      }
-    }
-
-    if (typeof echarts === "undefined") {
-      ["daily-chart", "hourly-chart", "gate-chart"].forEach(id => showChartError(id, new Error("ECharts 加载失败，请检查网络连接")));
-    } else {
-      Promise.all([loadDailyChart(), loadHourlyChart(), loadGateChart(), loadPeakWarning()]);
-      window.addEventListener("resize", () => charts.forEach(chart => chart.resize()));
-    }
-    loadRecords();
+  async function runMapReduceJobs() {
+    if (!window.confirm("确认重新运行三个 MapReduce 统计作业吗？")) return;
+    const button = document.getElementById("run-mr-button");
+    const label = button.querySelector("span");
+    const icon = button.querySelector("svg");
+    button.disabled = true;
+    button.classList.add("loading");
+    label.textContent = "MapReduce 正在运行，请稍候...";
+    if (icon) icon.setAttribute("data-lucide", "loader-circle");
     if (window.lucide) window.lucide.createIcons();
-  </script>
-</body>
-</html>
+    try {
+      const response = await fetch("{% url 'visitor:run-mr-import-api' %}", {
+        method: "POST",
+        headers: { "X-CSRFToken": "{{ csrf_token }}" }
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "MapReduce 作业执行失败，请检查 Hadoop 服务状态。");
+      }
+      window.alert("MapReduce 作业执行完成，统计结果已同步至 MySQL。");
+      window.location.reload();
+    } catch (error) {
+      window.alert(`MapReduce 作业执行失败：${error.message}`);
+    } finally {
+      button.disabled = false;
+      button.classList.remove("loading");
+      button.innerHTML = '<i data-lucide="play"></i><span>运行 MapReduce</span>';
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  if (typeof echarts === "undefined") {
+    ["daily-chart", "hourly-chart", "gate-chart"].forEach(id => showChartError(id, new Error("ECharts 加载失败，请检查网络连接")));
+  } else {
+    Promise.all([loadDailyChart(), loadHourlyChart(), loadGateChart(), loadPeakWarning()]);
+    window.addEventListener("resize", () => charts.forEach(chart => chart.resize()));
+  }
+  loadRecords();
+</script>
+{% endblock %}
