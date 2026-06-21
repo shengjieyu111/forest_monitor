@@ -1,0 +1,17 @@
+{
+  "class_names": [
+    "Pandas",
+    "RedPandas",
+    "MartesFlavigula",
+    "MacacaThibetana",
+    "RhinopithecusRoxellana",
+    "HystrixBrachyura",
+    "SusScrofa",
+    "RusaUnicolor",
+    "ElaphodusCephalophus",
+    "CapricornisMilneedwardsii",
+    "PseudoisNayaur"
+  ],
+  "num_classes": 11,
+  "model": "faster_rcnn_resnet50_fpn"
+}
