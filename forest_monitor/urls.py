@@ -25,5 +25,4 @@ urlpatterns = [
     path('devices/', include('devices.urls')),
     path('hdfs/', include('hdfs_app.urls')),
     path('weather/', include('weather.urls')),
-    path('ai/', include('wildlife_model.urls')),
 ]
