@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'ai_app',
     'visitor',
     'weather',
+    'wildlife_model',
 ]
 
 MIDDLEWARE = [
