@@ -1,0 +1,188 @@
+{% extends "forest_monitor/base.html" %}
+
+{% block title %}个人中心 - 鹫峰林场监测平台{% endblock %}
+{% block page_title %}个人中心{% endblock %}
+
+{% block css %}
+<style>
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+    }
+
+    .panel-block {
+        padding: 22px;
+    }
+
+    .panel-block h2 {
+        margin: 0 0 18px;
+        color: var(--forest-900);
+        font-size: 20px;
+    }
+
+    .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+
+    .meta-item {
+        padding: 14px;
+        border-radius: 12px;
+        background: var(--forest-50);
+    }
+
+    .meta-label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .meta-value {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--forest-900);
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 700;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #cbd8d1;
+        border-radius: 12px;
+        font-size: 14px;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--forest-700);
+        box-shadow: 0 0 0 4px rgba(45, 106, 82, 0.12);
+    }
+
+    .btn-primary {
+        padding: 12px 18px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--forest-700);
+        color: white;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .messages-stack {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .message {
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: var(--forest-100);
+        color: var(--forest-900);
+    }
+
+    .errorlist {
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+        color: #b42318;
+        font-size: 13px;
+    }
+
+    @media (max-width: 920px) {
+        .grid,
+        .meta-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if messages %}
+<div class="messages-stack">
+    {% for message in messages %}
+    <div class="message">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="grid">
+    <section class="panel panel-block">
+        <h2>个人信息</h2>
+        <div class="meta-grid">
+            <div class="meta-item">
+                <span class="meta-label">用户名</span>
+                <span class="meta-value">{{ request.user.username }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">角色</span>
+                <span class="meta-value">{{ role_display }}</span>
+            </div>
+        </div>
+
+        <form method="post" action="{% url 'profile_edit' %}">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="{{ profile_form.first_name.id_for_label }}">真实姓名</label>
+                {{ profile_form.first_name }}
+                {{ profile_form.first_name.errors }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ profile_form.email.id_for_label }}">邮箱</label>
+                {{ profile_form.email }}
+                {{ profile_form.email.errors }}
+            </div>
+
+            {{ profile_form.non_field_errors }}
+
+            <button type="submit" class="btn-primary">保存个人信息</button>
+        </form>
+    </section>
+
+    <section class="panel panel-block">
+        <h2>修改密码</h2>
+        <form method="post" action="{% url 'password_change' %}">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="{{ password_form.old_password.id_for_label }}">当前密码</label>
+                {{ password_form.old_password }}
+                {{ password_form.old_password.errors }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ password_form.new_password1.id_for_label }}">新密码</label>
+                {{ password_form.new_password1 }}
+                {{ password_form.new_password1.errors }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ password_form.new_password2.id_for_label }}">确认新密码</label>
+                {{ password_form.new_password2 }}
+                {{ password_form.new_password2.errors }}
+            </div>
+
+            {{ password_form.non_field_errors }}
+
+            <button type="submit" class="btn-primary">更新密码</button>
+        </form>
+    </section>
+</div>
+{% endblock %}
