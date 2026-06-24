@@ -233,17 +233,14 @@ ul{
 }
 
 .user-box{
-
+    display:flex;
+    align-items:center;
+    gap:12px;
     padding:6px 14px;
-
     border-radius:6px;
-
     background:white;
-
     color:#064e3b;
-
     font-size:14px;
-
     font-weight:700;
 }
 
@@ -282,6 +279,26 @@ ul{
     box-shadow:var(--shadow);
 }
 
+.top-link{
+    color:#064e3b;
+    text-decoration:none;
+    font-weight:700;
+}
+
+.message-stack{
+    display:grid;
+    gap:12px;
+    margin-bottom:18px;
+}
+
+.message-item{
+    padding:12px 14px;
+    border-radius:12px;
+    background:#e9f3ee;
+    color:#19382c;
+    border:1px solid #d8e7de;
+}
+
 </style>
 
 {% block css %}
@@ -309,6 +326,11 @@ ul{
     </div>
 
     <nav class="nav">
+
+        <a class="nav-item {% if page == 'weather' %}active{% endif %}" href="/weather/">
+            <i data-lucide="cloud-sun"></i>
+            <span>气象总览</span>
+        </a>
 
         <a class="nav-item {% if page == 'devices' %}active{% endif %}" href="/devices/">
             <i data-lucide="radio-tower"></i>
@@ -359,10 +381,24 @@ ul{
             </div>
 
             <div class="user-box">
-                管理员
+                {% if request.user.is_authenticated %}
+                    <span>{{ request.user.first_name|default:request.user.username }}</span>
+                    <a class="top-link" href="{% url 'profile' %}">个人中心</a>
+                    <a class="top-link" href="{% url 'user_logout' %}">退出</a>
+                {% else %}
+                    <a class="top-link" href="{% url 'user_login' %}">登录</a>
+                {% endif %}
             </div>
 
         </section>
+
+        {% if messages %}
+        <div class="message-stack">
+            {% for message in messages %}
+            <div class="message-item">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
         {% block content %}
         {% endblock %}

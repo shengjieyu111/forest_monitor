@@ -1,0 +1,512 @@
+{% extends "forest_monitor/base.html" %}
+
+{% block title %}野生动物AI识别 - 鹫峰林场监测{% endblock %}
+
+{% block css %}
+  <style>
+    /* 野生动物识别页面专用样式 */
+    .eyebrow { margin-bottom: 7px; color: var(--forest-600); font-size: 14px; font-weight: 800; }
+    .grid-2col { display: grid; grid-template-columns: minmax(0, .55fr) minmax(0, 1fr); gap: 13px; }
+    .btn {
+      height: 44px; display: inline-flex; align-items: center; gap: 7px;
+      border-radius: 8px; font-size: 17px; font-weight: 700; cursor: pointer;
+      transition: all .18s ease;
+    }
+    .btn-primary {
+      padding: 0 18px; color: #fff; border: 0; background: var(--forest-700);
+      box-shadow: 0 6px 15px rgba(45,106,82,.18);
+    }
+    .btn-primary:hover { background: var(--forest-800); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .68; cursor: wait; transform: none; }
+    .btn-outline { padding: 0 18px; color: var(--forest-700); border: 1.5px solid var(--forest-600); background: transparent; }
+    .btn-outline:hover { background: var(--forest-50); }
+    .upload-zone {
+      min-height: 280px; display: grid; place-items: center; padding: 40px;
+      border: 2px dashed #cbd6cf; border-radius: 14px; cursor: pointer;
+      transition: all .2s ease; position: relative; text-align: center;
+    }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--forest-600); background: rgba(57,132,102,.04); }
+    .upload-zone-inner { display: grid; gap: 16px; justify-items: center; }
+    .upload-zone-inner svg { width: 48px; height: 48px; color: #9eb5a8; }
+    .upload-text { color: var(--muted); font-size: 17px; font-weight: 600; }
+    .upload-hint { color: #9eb5a8; font-size: 14px; font-weight: 500; }
+    .upload-zone img.preview-img { max-height: 260px; max-width: 100%; border-radius: 10px; object-fit: contain; }
+    .result-panel { padding: 20px; }
+    .stats-bar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .stat-card {
+      flex: 1; min-width: 90px; padding: 14px; border-radius: 10px;
+      background: var(--forest-50); border: 1px solid #dfe8e2; text-align: center;
+    }
+    .stat-value { font-size: 32px; font-weight: 800; color: var(--forest-800); }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; font-weight: 600; }
+    .det-card {
+      border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+      margin-bottom: 10px; display: flex; align-items: center; gap: 14px;
+      transition: background .15s;
+    }
+    .det-card:hover { background: #f8fbf9; }
+    .det-rank {
+      width: 32px; height: 32px; display: grid; place-items: center;
+      border-radius: 8px; font-size: 14px; font-weight: 800; flex-shrink: 0;
+      background: #e3eee8; color: #3b5a4b;
+    }
+    .det-rank.top1 { background: #2d6a52; color: #fff; }
+    .det-info { flex: 1; min-width: 0; }
+    .det-name { font-size: 17px; font-weight: 700; color: var(--ink); }
+    .det-bbox { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .det-conf { font-size: 17px; font-weight: 700; color: var(--forest-700); flex-shrink: 0; }
+    .info-banner {
+      padding: 14px 18px; border-radius: 12px; margin-bottom: 16px;
+      display: flex; align-items: flex-start; gap: 12px;
+      font-size: 16px; font-weight: 600; line-height: 1.7;
+    }
+    .info-banner svg { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; }
+    .info-banner.info { background: #e8f1f3; color: #2b5b68; border: 1px solid #c5dfe5; }
+    .info-banner.success { background: #e6f2ec; color: #1f5c3f; border: 1px solid #b9dbca; }
+    .info-banner code {
+      padding: 2px 7px; background: rgba(0,0,0,.06); border-radius: 4px;
+      font-size: 14px; font-family: "Consolas", "Monaco", monospace;
+    }
+    .model-info-card { padding: 16px 18px; display: grid; gap: 8px; }
+    .model-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 700;
+    }
+    .model-badge.trained { background: #daf0e4; color: #1f5c3f; }
+    .model-badge.untrained { background: #fef3dc; color: #9a7720; }
+    .class-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .class-tag { padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; background: #edf4f0; color: #3b5a4b; }
+    .species-card {
+      border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+      margin-bottom: 12px; background: #fbfdfc;
+      transition: box-shadow .18s;
+    }
+    .species-card:hover { box-shadow: 0 4px 16px rgba(28, 58, 46, .06); }
+    .species-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .species-icon { font-size: 28px; flex-shrink: 0; }
+    .species-name-cn { font-size: 18px; font-weight: 800; color: var(--forest-900); }
+    .species-latin { font-size: 12px; color: #889990; font-style: italic; margin-top: 1px; }
+    .species-brief { font-size: 14px; color: var(--ink); line-height: 1.75; margin-bottom: 10px; }
+    .species-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+    .species-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    }
+    .species-tag.habitat { background: #e6f0ea; color: #3a6048; }
+    .species-tag.diet { background: #fdf3e0; color: #8c6b2e; }
+    .species-tag.status { background: #fde8e5; color: #a3453a; }
+    .panel { min-width: 0; overflow: hidden; }
+    .panel-head { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 18px; border-bottom: 1px solid #edf1ee; }
+    .panel-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .panel-title > svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--forest-600); }
+    h2 { color: var(--forest-950); font-size: 21px; font-weight: 800; }
+    .panel-subtitle { margin-top: 5px; color: #6f7f76; font-size: 15px; font-weight: 600; }
+    .panel-tag { padding: 6px 10px; color: #216648; border-radius: 6px; background: var(--forest-100); font-size: 13px; font-weight: 700; }
+    @media (max-width: 1120px) {
+      .grid-2col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .upload-zone { min-height: 220px; }
+    }
+  </style>
+{% endblock %}
+
+{% block page_title %}野生动物 AI 智能识别{% endblock %}
+
+{% block content %}
+
+  <!-- 游客提醒 -->
+  <div class="info-banner info">
+    <i data-lucide="alert-triangle"></i>
+    <div>
+      <strong>鹫峰林场 — 游客安全提醒</strong><br>
+      林场内栖息着多种野生动物，请勿投喂、追赶或近距离接触。<br>
+      如通过红外相机拍摄到不明动物，可使用本页 AI 识别功能协助辨认。
+    </div>
+  </div>
+
+  <div class="grid-2col">
+    <!-- 左侧: 上传区 -->
+    <div style="display:grid;gap:13px;align-content:start;">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <i data-lucide="image-up"></i>
+            <div><h2>上传红外相机照片</h2><div class="panel-subtitle">支持 JPEG / PNG / WebP</div></div>
+          </div>
+        </div>
+        <div style="padding:18px;">
+          <!-- 模型选择器 -->
+          <div style="margin-bottom:14px;">
+            <label style="font-size:13px;font-weight:700;color:var(--forest-800);display:block;margin-bottom:6px;">
+              选择检测模型
+            </label>
+            <select id="model-select" style="width:100%;height:40px;padding:0 12px;border:2px solid var(--line);border-radius:8px;font-size:15px;font-weight:600;color:var(--ink);background:var(--card);cursor:pointer;outline:none;transition:border-color .2s;">
+              {% for m in model_list %}
+              <option value="{{ m.id }}" {% if m.id == 'wildlife_best' %}selected{% endif %}>{{ m.icon }} {{ m.name }}</option>
+              {% endfor %}
+            </select>
+
+          </div>
+
+          <div class="upload-zone" id="upload-zone">
+            <div class="upload-zone-inner" id="upload-placeholder">
+              <i data-lucide="camera"></i>
+              <div class="upload-text">点击上传或拖拽图片到此处</div>
+              <div class="upload-hint">红外相机监测照片 · 支持多动物同时检测</div>
+            </div>
+            <img class="preview-img" id="preview-img" style="display:none;" alt="预览">
+            <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
+          </div>
+          <!-- 置信度阈值调节 -->
+          <div style="margin-top:14px;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:13px;font-weight:600;color:var(--forest-800);white-space:nowrap;">置信度阈值</span>
+            <input type="range" id="conf-slider" min="10" max="90" value="45" step="5"
+              style="flex:1;accent-color:var(--forest-600);height:6px;">
+            <span style="font-size:13px;font-weight:700;color:var(--forest-700);min-width:42px;text-align:right;" id="conf-label">0.45</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;">
+            低于该阈值的检测框将被过滤 · 调高可减少误检 · 推荐 0.4~0.6
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:10px;">
+            <button class="btn btn-primary" id="btn-predict" disabled>
+              <i data-lucide="sparkles"></i><span>开始检测</span>
+            </button>
+            <button class="btn btn-outline" id="btn-reset" disabled>
+              <i data-lucide="rotate-ccw"></i><span>重置</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="model-info-panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <i data-lucide="cpu"></i>
+            <div><h2>模型部署状态</h2><div class="panel-subtitle" id="model-subtitle">双模型可选</div></div>
+          </div>
+        </div>
+        <div class="model-info-card" id="model-info-content">
+          <!-- JS 动态填充 -->
+          <div style="text-align:center;padding:16px;color:var(--muted);">加载中...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧: 检测结果 -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          <i data-lucide="list-checks"></i>
+          <div><h2>检测结果</h2><div class="panel-subtitle" id="model-used">YOLOv8 野生动物检测</div></div>
+        </div>
+        <span class="panel-tag" id="inference-time">--</span>
+      </div>
+      <div class="result-panel" id="result-area">
+        <div style="text-align:center;padding:60px 0;color:var(--muted);">
+          <i data-lucide="image" style="width:48px;height:48px;margin-bottom:12px;color:#c5d2ca;"></i>
+          <div style="font-size:17px;font-weight:600;">上传红外相机照片开始检测</div>
+          <div style="font-size:14px;margin-top:6px;">YOLOv8 将自动识别并定位图中每只野生动物</div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block js %}
+<script>
+  // ===== 模型数据 (从 Django 注入) =====
+  const MODEL_LIST = {{ model_list_json|safe }};
+  const MODEL_MAP = {};
+  MODEL_LIST.forEach(m => { MODEL_MAP[m.id] = m; });
+
+  // ===== Upload Logic =====
+  let selectedFile = null;
+  const uploadZone = document.getElementById("upload-zone");
+  const fileInput = document.getElementById("file-input");
+  const placeholder = document.getElementById("upload-placeholder");
+  const previewImg = document.getElementById("preview-img");
+  const btnPredict = document.getElementById("btn-predict");
+  const btnReset = document.getElementById("btn-reset");
+  const confSlider = document.getElementById("conf-slider");
+  const confLabel = document.getElementById("conf-label");
+  const modelSelect = document.getElementById("model-select");
+  const modelSubtitle = document.getElementById("model-subtitle");
+
+  // 置信度滑块
+  confSlider.addEventListener("input", () => {
+    confLabel.textContent = (parseInt(confSlider.value) / 100).toFixed(2);
+  });
+
+  // 模型切换 → 更新模型信息卡
+  modelSelect.addEventListener("change", () => {
+    const mid = modelSelect.value;
+    const m = MODEL_MAP[mid];
+    if (m) {
+      modelSubtitle.textContent = m.name || '双模型可选';
+    }
+    buildModelInfoCards();
+  });
+
+  // 初始化模型副标题
+  (function initModelUI() {
+    const defModel = MODEL_LIST.find(m => m.id === 'wildlife_best') || MODEL_LIST[0];
+    if (defModel) {
+      modelSubtitle.textContent = defModel.name || '双模型可选';
+    }
+  })();
+
+  uploadZone.addEventListener("click", () => fileInput.click());
+
+  uploadZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    uploadZone.classList.add("drag-over");
+  });
+  uploadZone.addEventListener("dragleave", () => {
+    uploadZone.classList.remove("drag-over");
+  });
+  uploadZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove("drag-over");
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file) {
+    if (!file.type.match(/image\/(jpeg|png|webp)/)) {
+      alert("仅支持 JPG、PNG、WebP 格式图片");
+      return;
+    }
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      previewImg.style.display = "block";
+      placeholder.style.display = "none";
+      btnPredict.disabled = false;
+      btnReset.disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function resetUpload() {
+    selectedFile = null;
+    fileInput.value = "";
+    previewImg.style.display = "none";
+    placeholder.style.display = "grid";
+    btnPredict.disabled = true;
+    btnReset.disabled = true;
+    document.getElementById("result-area").innerHTML = `
+      <div style="text-align:center;padding:60px 0;color:var(--muted);">
+        <i data-lucide="image" style="width:48px;height:48px;margin-bottom:12px;color:#c5d2ca;"></i>
+        <div style="font-size:17px;font-weight:600;">上传红外相机照片开始检测</div>
+        <div style="font-size:14px;margin-top:6px;">YOLOv8 将自动识别并定位图中每只野生动物</div>
+      </div>`;
+    document.getElementById("inference-time").textContent = "--";
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // ===== 物种中英文名称映射 =====
+  const SPECIES_CN = {
+    "Pandas": "大熊猫",
+    "RedPandas": "小熊猫",
+    "MartesFlavigula": "黄喉貂",
+    "MacacaThibetana": "藏酋猴",
+    "RhinopithecusRoxellana": "川金丝猴",
+    "HystrixBrachyura": "中华豪猪",
+    "SusScrofa": "野猪",
+    "RusaUnicolor": "水鹿",
+    "ElaphodusCephalophus": "毛冠鹿",
+    "CapricornisMilneedwardsii": "中华鬣羚",
+    "PseudoisNayaur": "岩羊",
+  };
+  function cnName(en) { return SPECIES_CN[en] || en; }
+
+  // ===== Result Rendering =====
+  function renderDetections(data, origSrc) {
+    if (!data.success) {
+      return `<div style="text-align:center;padding:40px 0;color:var(--danger);">
+        <div style="font-size:17px;font-weight:600;">检测失败</div>
+        <div style="font-size:14px;margin-top:6px;">${data.error || '未知错误'}</div>
+      </div>`;
+    }
+
+    if (data.total_count === 0) {
+      return `<div style="text-align:center;padding:40px 0;color:var(--muted);">
+        <i data-lucide="search-x" style="width:40px;height:40px;margin-bottom:8px;color:#c5d2ca;"></i>
+        <div style="font-size:17px;font-weight:600;">未检测到野生动物</div>
+        <div style="font-size:14px;margin-top:6px;">图片中未发现可识别的野生动物</div>
+      </div>`;
+    }
+
+    let html = '';
+
+    // 原图 vs 标注图 左右对比
+    if (origSrc && data.annotated_image) {
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;">📷 原图</div>
+          <img src="${origSrc}" style="width:100%;border-radius:8px;border:2px solid #dee5df;" alt="原图">
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;">🎯 检测标注</div>
+          <img src="${data.annotated_image}" style="width:100%;border-radius:8px;border:2px solid var(--forest-600);" alt="检测结果">
+        </div>
+      </div>`;
+    } else if (data.annotated_image) {
+      html += `<div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;">🎯 检测标注</div>
+        <img src="${data.annotated_image}" style="width:100%;border-radius:8px;border:2px solid var(--forest-600);" alt="检测结果">
+      </div>`;
+    }
+
+    html += `<div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-value">${data.total_count}</div>
+        <div class="stat-label">检测到动物</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${data.inference_time_ms}ms</div>
+        <div class="stat-label">推理耗时</div>
+      </div>`;
+
+    if (data.class_counts) {
+      for (const [name, count] of Object.entries(data.class_counts)) {
+        html += `<div class="stat-card">
+          <div class="stat-value" style="font-size:24px;">${count}</div>
+          <div class="stat-label">${cnName(name)} <span style="font-size:10px;color:#99a89f;">${name}</span></div>
+        </div>`;
+      }
+    }
+
+    html += `</div>`;
+
+    // 检测详情卡片
+    data.detections.forEach((det, i) => {
+      html += `<div class="det-card">
+        <div class="det-rank ${i === 0 ? 'top1' : ''}">${i + 1}</div>
+        <div class="det-info">
+          <div class="det-name">${cnName(det.class_name)} <span style="font-size:11px;font-weight:400;color:#889990;">(${det.class_name})</span></div>
+          <div class="det-bbox">位置: (${Math.round(det.bbox[0])}, ${Math.round(det.bbox[1])}) → (${Math.round(det.bbox[2])}, ${Math.round(det.bbox[3])})</div>
+        </div>
+        <div class="det-conf">${(det.confidence * 100).toFixed(1)}%</div>
+      </div>`;
+    });
+
+    // 物种简介卡片
+    if (data.species_info && Object.keys(data.species_info).length > 0) {
+      html += `<div style="margin-top:20px;padding-top:16px;border-top:2px solid #edf2ef;">
+        <div style="font-size:14px;font-weight:700;color:var(--forest-700);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+          <i data-lucide="book-open" style="width:16px;height:16px;"></i> 物种简介
+        </div>`;
+      const animalIcons = {
+        "Pandas": "🐼", "RedPandas": "🦊", "MartesFlavigula": "🦡",
+        "MacacaThibetana": "🐒", "RhinopithecusRoxellana": "🐵",
+        "HystrixBrachyura": "🦔", "SusScrofa": "🐗",
+        "RusaUnicolor": "🦌", "ElaphodusCephalophus": "🦌",
+        "CapricornisMilneedwardsii": "山羊", "PseudoisNayaur": "岩羊"
+      };
+      for (const [name, info] of Object.entries(data.species_info)) {
+        const icon = animalIcons[name] || "🐾";
+        html += `<div class="species-card">
+          <div class="species-header">
+            <span class="species-icon">${icon}</span>
+            <div>
+              <div class="species-name-cn">${info.cn_name || cnName(name)}</div>
+              <div class="species-latin">${info.latin || ''}</div>
+            </div>
+          </div>
+          <div class="species-brief">${info.brief || ''}</div>
+          <div class="species-meta">
+            ${info.habitat ? `<span class="species-tag habitat">🏔 ${info.habitat}</span>` : ''}
+            ${info.diet ? `<span class="species-tag diet">🍃 ${info.diet}</span>` : ''}
+            ${info.status ? `<span class="species-tag status">⚠ ${info.status}</span>` : ''}
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    return html;
+  }
+
+  // ===== API Call =====
+  btnPredict.addEventListener("click", () => {
+    if (!selectedFile) return;
+    btnPredict.disabled = true;
+    btnPredict.innerHTML = '<i data-lucide="loader-2"></i><span>检测中...</span>';
+    if (window.lucide) lucide.createIcons();
+
+    const formData = new FormData();
+    formData.append("image", selectedFile);
+    formData.append("conf", (parseInt(confSlider.value) / 100).toFixed(2));
+    formData.append("model", modelSelect.value);
+
+    fetch("/ai/wildlife-predict/", {
+      method: "POST",
+      body: formData,
+    })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("result-area").innerHTML = renderDetections(data, previewImg.src);
+      document.getElementById("inference-time").textContent =
+        data.inference_time_ms ? `${data.inference_time_ms}ms` : "--";
+      // 更新标题为当前使用的模型名
+      const usedModel = MODEL_MAP[data.model_used || modelSelect.value];
+      document.getElementById("model-used").textContent =
+        usedModel ? usedModel.name : '检测结果';
+    })
+    .catch(err => {
+      document.getElementById("result-area").innerHTML = `
+        <div style="text-align:center;padding:40px 0;color:var(--orange);">
+          <div style="font-size:17px;font-weight:600;">请求失败</div>
+          <div style="font-size:14px;margin-top:6px;">${err.message}</div>
+        </div>`;
+    })
+    .finally(() => {
+      btnPredict.disabled = false;
+      btnPredict.innerHTML = '<i data-lucide="sparkles"></i><span>开始检测</span>';
+      if (window.lucide) lucide.createIcons();
+    });
+  });
+
+  // ===== 模型信息卡渲染 =====
+  function buildModelInfoCards() {
+    const container = document.getElementById("model-info-content");
+    const sid = modelSelect.value;
+    let html = '';
+    MODEL_LIST.forEach(m => {
+      const isActive = (m.id === sid);
+      const borderColor = isActive ? 'var(--forest-600)' : 'var(--line)';
+      const bg = isActive ? '#f0f7f3' : 'transparent';
+      if (m.error) {
+        html += `<div style="padding:10px 14px;margin-bottom:8px;border:1.5px solid ${borderColor};border-radius:10px;background:${bg};">
+          <div style="font-size:14px;font-weight:700;color:var(--danger);">${m.icon} ${m.name}</div>
+          <div style="font-size:12px;color:var(--danger);margin-top:2px;">⚠ ${m.error}</div>
+        </div>`;
+      } else {
+        html += `<div style="padding:10px 14px;margin-bottom:8px;border:1.5px solid ${borderColor};border-radius:10px;background:${bg};">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span style="font-size:15px;font-weight:700;color:var(--forest-800);">${m.icon} ${m.name}</span>
+            ${m.arch ? `<span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;background:${isActive ? 'var(--forest-600)' : '#889990'};">${m.arch}</span>` : ''}
+            <span style="width:8px;height:8px;border-radius:50%;background:${isActive ? '#3cb371' : '#ccc'};display:inline-block;"></span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">${m.desc || ''}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">类别: ${m.num_classes || 0} 种 · 设备: ${m.device || '?'}</div>
+        </div>`;
+      }
+    });
+    container.innerHTML = html;
+  }
+
+  // 页面加载时渲染模型信息卡
+  document.addEventListener("DOMContentLoaded", () => {
+    if (window.lucide) lucide.createIcons();
+    if (MODEL_LIST.length) buildModelInfoCards();
+  });
+</script>
+{% endblock %}
