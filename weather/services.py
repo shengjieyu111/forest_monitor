@@ -20,15 +20,19 @@ from .models import (
 # =====================
 # 1. 配置
 # =====================
-SSH_HOST = os.getenv("HADOOP_SSH_HOST", "192.168.10.11")
-SSH_PORT = 22
-SSH_USERNAME = "hxh"
-SSH_PASSWORD = "123456"
+SSH_HOST = os.getenv("HADOOP_SSH_HOST", "192.168.56.100")
+SSH_PORT = int(os.getenv("HADOOP_SSH_PORT", "22"))
+SSH_USERNAME = os.getenv("HADOOP_SSH_USERNAME", "root")
+SSH_PASSWORD = os.getenv("HADOOP_SSH_PASSWORD", "")
 
-REMOTE_HADOOP_DIR = "/home/hxh/forest_monitor/weather"
-REMOTE_DATASET_DIR = "/home/hxh/forest_monitor/weather/input"
+REMOTE_HADOOP_DIR = os.getenv(
+    "HADOOP_REMOTE_WEATHER_DIR", "/root/forest_monitor/weather"
+)
+REMOTE_DATASET_DIR = os.getenv(
+    "HADOOP_REMOTE_WEATHER_INPUT_DIR", "/root/forest_monitor/weather/input"
+)
 
-HDFS_BASE = "/hxh/forest_monitor/hadoop/weather"
+HDFS_BASE = os.getenv("HDFS_WEATHER_BASE", "/forest/weather")
 HDFS_INPUT_DIR = f"{HDFS_BASE}/input"
 HDFS_OUTPUT_DIR = f"{HDFS_BASE}/output"
 
